@@ -1,0 +1,31 @@
+{
+  "projectContext": "NEON DESCENT — 1.44MB Game Contest 2026. no-CRT Win32+OpenGL 네온 벡터 액션 로그라이크. 최우선 제약: 최종 standalone .exe ≤ 1,474,560 bytes. 규칙 .claude/rules/, 설계 DESIGN.md/docs/.",
+  "env": {
+    "ND_SIZE_CAP": "1474560",
+    "ND_SIZE_TARGET": "65536"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \".claude/hooks/size-budget-check.ps1\"" }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \".claude/hooks/no-crt-guard.ps1\"" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \".claude/hooks/size-budget-check.ps1\"" },
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \".claude/hooks/design-confirm-gate.ps1\"" }
+        ]
+      }
+    ]
+  }
+}

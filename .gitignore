@@ -1,0 +1,9 @@
+# 빌드 산출물
+/build/
+*.obj
+*.exe
+*.pdb
+*.ilk
+# worktree 코디네이션
+.coord/
+# 디자인 목업 PNG는 추적(컨펌 이력) — 무시하지 않음
