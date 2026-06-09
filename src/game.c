@@ -298,6 +298,14 @@ static void combat_update(float dt){
     float mnx=(c->rx+1)*TILEF, mxx=(c->rx+c->rw-1)*TILEF, mny=(c->ry+1)*TILEF, mxy=(c->ry+c->rh-1)*TILEF;
     if(g_player.pos.x<mnx)g_player.pos.x=mnx; if(g_player.pos.x>mxx)g_player.pos.x=mxx;
     if(g_player.pos.y<mny)g_player.pos.y=mny; if(g_player.pos.y>mxy)g_player.pos.y=mxy;
+    /* 적도 방 안에 confine (리코셰 탈출로 인한 미클리어 방지 — 리코셰는 경계 반사) */
+    for(j=0;j<MAXENE;j++){ if(!g_ene[j].active) continue; float er=ene_radius(g_ene[j].type);
+      float emnx=c->rx*TILEF+er, emxx=(c->rx+c->rw)*TILEF-er, emny=c->ry*TILEF+er, emxy=(c->ry+c->rh)*TILEF-er;
+      if(g_ene[j].pos.x<emnx){ g_ene[j].pos.x=emnx; if(g_ene[j].type==2) g_ene[j].vel.x=-g_ene[j].vel.x; }
+      else if(g_ene[j].pos.x>emxx){ g_ene[j].pos.x=emxx; if(g_ene[j].type==2) g_ene[j].vel.x=-g_ene[j].vel.x; }
+      if(g_ene[j].pos.y<emny){ g_ene[j].pos.y=emny; if(g_ene[j].type==2) g_ene[j].vel.y=-g_ene[j].vel.y; }
+      else if(g_ene[j].pos.y>emxy){ g_ene[j].pos.y=emxy; if(g_ene[j].type==2) g_ene[j].vel.y=-g_ene[j].vel.y; }
+    }
     int alive=0; for(i=0;i<MAXENE;i++) if(g_ene[i].active) alive++;
     if(alive==0){ g_cleared[g_lockGY][g_lockGX]=1; g_locked=0; burst(g_player.pos.x,g_player.pos.y,12,120.0f,0.2f,1.0f,0.9f); }
   }
