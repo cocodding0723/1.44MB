@@ -29,7 +29,14 @@ metadata:
 - 즉시모드 GL은 적별 5~9 glBegin라 256적 배칭 = 렌더러 재작성(재활용 아님).
 - no-CRT 세이브: memset 자작(OK), shell32 미링크 → LOCALAPPDATA는 GetEnvironmentVariable.
 
+## N2 메타 세이브 (2026-06-14, 검증 완료)
+- 세이브: `%LOCALAPPDATA%\neondescent.dat` 32B(magic NDRN·ver·bestScore·bestLayer·corruption·codex·bestTime·FNV체크섬). **shell32 미링크 → GetEnvironmentVariableA로 경로**, CreateFileA/WriteFile, **원자적 쓰기(temp→MoveFileExA REPLACE|WRITE_THROUGH)**, 로드 시 magic+ver+크기+체크섬 4중검증→불일치 시 기본값. memset 자작 확인.
+- 코덱스 8파편(`g_codexTxt`), `unlock_codex(bit)`=해금+오버레이+저장. 마일스톤: descend 깊이(L2/4/6/9), boss_die(처치/WARDEN/NEXUS), new_run 부패도(≥3/≥8). 부패도별 ECHO 변주("YOU ARE AWAKE. AGAIN. HOW MANY TIMES NOW").
+- ST_CODEX 뷰어(타이틀 C), 타이틀에 "CODEX n/8" 표시. 사망 시 corruption++ + save_write.
+- **라운드트립 검증**: 임시 K디버그로 unlock→32B 파일(magic/ver/corruption/codex/crc 확인)→재실행 save_load→코덱스에 FRAG03 영속 표시 확인. 디버그 되돌림. 84,992B(캡 5.8%).
+- **교훈**: 디버그 키 추가 후 반드시 깨끗한 재빌드 확인(에러 스크립트 안 빌드는 미완료될 수 있음 — K가 안 먹던 원인). 세이브 파일 Remove-Item은 샌드박스 차단 → 덮어쓰기로 테스트.
+
 ## 미해결
-- N2 메타 세이브(부패도·코덱스·해금·엔딩), N3 페르소나/엔딩. 코덱스 화면.
+- N3 페르소나/엔딩(REVENANT 외 DAEMON/SENTINEL/GHOST, 다중 엔딩). 무기 진화.
 - 보스/사망 교신은 코드 경로 동일(레이어 교신 검증됨)이나 인게임 실측 미완(보스 도달 어려움).
 - 서사 비주얼(시질·교신 UI) rules/50 ⏳.

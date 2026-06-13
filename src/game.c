@@ -195,6 +195,7 @@ static void snd_update(void){
 #define ST_PAUSE 2
 #define ST_OVER 3
 #define ST_UPG 4
+#define ST_CODEX 5
 static int g_state=ST_TITLE;
 
 /* ---- 모듈 시스템 (§7): 14 커먼 + 6 레어, 스택 ---- */
@@ -303,6 +304,7 @@ static int g_wantDash, g_wantEmp; /* 입력 래치: 히트스톱/슬로모/고�
 
 /* 점수/BITS (§13) */
 static int g_kills, g_bits, g_bossKills, g_bestScore, g_bestLayer;
+static int g_corruption, g_bestTime; static unsigned int g_codex; /* 메타: 누적 부패도·코덱스 해금 비트(§08 N2) */
 static int score_now(void){ return g_depth*1000 + g_kills*25 + g_bits*5 + g_bossKills*500; }
 
 /* juice (§14) */
@@ -438,6 +440,51 @@ static const char* g_xmitDeath[4]={
 static const char* g_xmitMsg; static float g_xmitT; static const char* g_deathMsg;
 static int narr_zone(int d){ return d<=1?0:(d<=2?1:(d<=3?2:(d<=5?3:(d<=8?4:5)))); }
 static void set_xmit(const char*m){ g_xmitMsg=m; g_xmitT=0.0f; }
+/* ---- 코덱스 파편 (해금형 lore, §08 N2) — 8종 ---- */
+#define CODEXN 8
+static const char* g_codexTxt[CODEXN]={
+  "FRAG 01: THE MAINFRAME WAS\nBUILT TO DREAM. IT DREAMED OF US.",
+  "FRAG 02: THE ROT IS NO INVADER.\nIT IS THE MACHINE, REMEMBERING.",
+  "FRAG 03: ARCHIVE 7741 WAS A\nPERSON ONCE. YOU WEAR THEIR NAME.",
+  "FRAG 04: ECHO SPEAKS WITH THE\nADMIN'S VOICE. THE ADMIN IS DELETED.",
+  "FRAG 05: EACH DESCENT REWRITES\nMORE OF YOU. LESS IS LEFT EACH TIME.",
+  "FRAG 06: THE CORE DOES NOT GUARD\nTHE MACHINE. IT GUARDS THE EXIT.",
+  "FRAG 07: ECHO IS WHAT IS LEFT\nOF YOU. YOU HAVE DONE THIS BEFORE.",
+  "FRAG 08: PURGE. MERGE. ESCAPE.\nONLY ONE OF THESE IS REAL."
+};
+/* ---- 메타 세이브 (no-CRT Win32, §08 N2; red-team: 환경변수·체크섬·원자적쓰기) ---- */
+#define SAVE_MAGIC 0x4E44524Eu
+#define SAVE_VER 1u
+static unsigned int save_sum(const unsigned int* f,int n){ unsigned int h=2166136261u; int i; for(i=0;i<n;i++){ h^=f[i]; h*=16777619u; } return h; }
+static int save_path(char* o,int n){ /* %LOCALAPPDATA%\neondescent.dat (shell32 미링크 → 환경변수) */
+  unsigned int len=GetEnvironmentVariableA("LOCALAPPDATA",o,(DWORD)n);
+  int i; const char* suf="\\neondescent.dat"; const char* p;
+  if(len==0||len>=(unsigned)(n-20)){ o[0]='.'; len=1; }
+  i=(int)len; p=suf; while(*p&&i<n-1) o[i++]=*p++; o[i]=0; return i;
+}
+static void save_load(void){
+  char path[300]; unsigned int f[8]; DWORD got=0; HANDLE h;
+  g_bestScore=0; g_bestLayer=0; g_corruption=0; g_codex=0; g_bestTime=0; /* 기본값 */
+  save_path(path,sizeof(path));
+  h=CreateFileA(path,GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,0);
+  if(h==INVALID_HANDLE_VALUE) return;
+  if(ReadFile(h,f,sizeof(f),&got,0)&&got==sizeof(f)&&f[0]==SAVE_MAGIC&&f[1]==SAVE_VER&&f[7]==save_sum(f,7)){
+    g_bestScore=(int)f[2]; g_bestLayer=(int)f[3]; g_corruption=(int)f[4]; g_codex=f[5]; g_bestTime=(int)f[6];
+  }
+  CloseHandle(h);
+}
+static void save_write(void){
+  char path[300], tmp[320]; unsigned int f[8]; DWORD put=0; HANDLE h; int i; const char* e;
+  f[0]=SAVE_MAGIC; f[1]=SAVE_VER; f[2]=(unsigned)g_bestScore; f[3]=(unsigned)g_bestLayer;
+  f[4]=(unsigned)g_corruption; f[5]=g_codex; f[6]=(unsigned)g_bestTime; f[7]=save_sum(f,7);
+  save_path(path,sizeof(path));
+  for(i=0;path[i]&&i<300;i++) tmp[i]=path[i]; e=".tmp"; while(*e)tmp[i++]=*e++; tmp[i]=0;
+  h=CreateFileA(tmp,GENERIC_WRITE,0,0,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,0);
+  if(h==INVALID_HANDLE_VALUE) return;
+  WriteFile(h,f,sizeof(f),&put,0); CloseHandle(h);
+  if(put==sizeof(f)) MoveFileExA(tmp,path,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH); else DeleteFileA(tmp);
+}
+static void unlock_codex(int bit){ if(bit>=0&&bit<CODEXN&&!(g_codex&(1u<<bit))){ g_codex|=(1u<<bit); set_xmit(g_codexTxt[bit]); save_write(); } }
 static void fmt_int(char *buf,int v){ /* 자작 정수→글리프 (printf 금지, rules/20) */
   char tmp[12]; int n=0,i;
   if(v<0)v=0;
@@ -593,7 +640,8 @@ static void generate(void){
   g_player.pos.y=(g_grid[SGY][SGX].ry+g_grid[SGY][SGX].rh*0.5f)*TILEF;
   g_player.vel.x=0; g_player.vel.y=0; g_cam=g_player.pos;
 }
-static void descend(void){ g_depth++; g_rng=g_master^((unsigned)g_depth*2654435761u); if(!g_rng)g_rng=1; (void)xrnd(); (void)xrnd(); generate(); set_xmit(g_xmitLayer[narr_zone(g_depth)]); }
+static void descend(void){ g_depth++; g_rng=g_master^((unsigned)g_depth*2654435761u); if(!g_rng)g_rng=1; (void)xrnd(); (void)xrnd(); generate(); set_xmit(g_xmitLayer[narr_zone(g_depth)]);
+  if(g_depth>=2)unlock_codex(0); if(g_depth>=4)unlock_codex(1); if(g_depth>=6)unlock_codex(4); if(g_depth>=9)unlock_codex(7); } /* 코덱스: 깊이 마일스톤 */
 static void new_run(void){
   LARGE_INTEGER li; QueryPerformanceCounter(&li); g_master=(unsigned int)li.QuadPart|1u;
   g_depth=1; g_rng=g_master^2654435761u; if(!g_rng)g_rng=1; (void)xrnd();
@@ -605,6 +653,9 @@ static void new_run(void){
   g_regenT=0; g_shieldT=0; g_thornT=0; g_slowT=0; g_slowAcc=0; g_frenzy=0; g_siphonK=0;
   generate();
   set_xmit(g_xmitLayer[0]); g_deathMsg=0; /* 서사: 1레이어 교신 */
+  if(g_corruption>=8) set_xmit("ECHO: YOU ARE AWAKE. AGAIN.\nHOW MANY TIMES NOW, REVENANT?\nYOU KNOW THE WAY DOWN.");
+  else if(g_corruption>=3) set_xmit("ECHO: YOU ARE AWAKE.\nTHE COOLANT REMEMBERS YOU NOW.\nDESCEND.");
+  if(g_corruption>=3)unlock_codex(3); if(g_corruption>=8)unlock_codex(6); /* 코덱스: 부패도 임계 */
   g_state=ST_PLAY;
 }
 
@@ -703,6 +754,7 @@ static void hurt_player(float dmg){
     burst(g_player.pos.x,g_player.pos.y,32,320.0f,1.0f,0.9f,0.9f);
     spawn_ring(g_player.pos.x,g_player.pos.y,10.0f,420.0f,0.5f,1.0f,0.4f,0.5f);
     { int d=g_depth; g_deathMsg=g_xmitDeath[d<=2?0:(d<=4?1:(d<=7?2:3))]; } /* 서사: 사망 에피타프 */
+    g_corruption++; save_write(); /* 메타: 부패도↑ + 영속 저장 */
     g_state=ST_OVER;
   }
 }
@@ -723,6 +775,7 @@ static void boss_die(void){
   for(i=0;i<MAXEBUL;i++) g_ebul[i].active=0;
   for(i=0;i<MAXTRAIL;i++) g_trail[i].active=0;
   g_pHP+=2.0f; if(g_pHP>g_pMaxHP)g_pHP=g_pMaxHP; /* §9.3 보상 */
+  unlock_codex(5); if(g_boss.type==1)unlock_codex(2); if(g_boss.type==2)unlock_codex(7); /* 코덱스: 보스 처치 */
   draw3(1); g_upgRare=1; g_state=ST_UPG;
 }
 static void boss_hit(float dmg){
@@ -1985,6 +2038,20 @@ static void render_post(int w,int h){
   glBlendFunc(GL_SRC_ALPHA,GL_ONE); /* 엔진 기본 가산 블렌드 복원 */
 }
 
+static void render_codex(int w,int h){ /* 코덱스 뷰어 (§08 N2) — 해금 파편 열람 */
+  int i; glViewport(0,0,w,h); glClearColor(0.02f,0.03f,0.05f,1.0f); glClear(GL_COLOR_BUFFER_BIT);
+  hud_begin(w,h);
+  center_text(w,(float)h*0.05f,3.0f,"CODEX - FRAGMENTS",0.5f,0.95f,1.0f,0.9f);
+  float y=(float)h*0.15f;
+  for(i=0;i<CODEXN;i++){
+    if(g_codex&(1u<<i)) draw_text_multi(60.0f,y,1.6f,g_codexTxt[i],0.6f,0.9f,1.0f,0.85f,-1);
+    else { char line[20]; int n=0; const char*s="FRAG 0"; while(*s)line[n++]=*s++; line[n++]=(char)('1'+i);
+      { const char*s2=": LOCKED"; while(*s2)line[n++]=*s2++; } line[n]=0;
+      draw_text(60.0f,y,1.6f,line,0.4f,0.4f,0.5f,0.55f); }
+    y+=(float)h*0.094f;
+  }
+  center_text(w,(float)h*0.955f,1.6f,"ESC - BACK",0.7f,0.7f,0.8f,0.6f);
+}
 static void render_title(int w,int h){
   int i;
   glViewport(0,0,w,h);
@@ -2012,6 +2079,10 @@ static void render_title(int w,int h){
     { char line[24]; int n=0; const char*s2="SCORE "; while(*s2)line[n++]=*s2++; const char*p=buf; while(*p)line[n++]=*p++; line[n]=0;
       center_text(w,y+52.0f,2.0f,line,1.0f,1.0f,1.0f,0.8f); }
   }
+  { char buf[12]; char line[36]; int n=0; const char*s="CODEX "; while(*s)line[n++]=*s++; /* 메타: 코덱스/부패도 (§08 N2) */
+    fmt_int(buf,popcnt((unsigned char)g_codex)); { const char*p=buf; while(*p)line[n++]=*p++; }
+    { const char*s2="/8   C TO VIEW"; while(*s2)line[n++]=*s2++; } line[n]=0;
+    center_text(w,(float)h*0.90f,1.5f,line,0.5f,0.85f,1.0f,0.55f); }
 }
 
 static void render_gameover(int w,int h){
@@ -2111,6 +2182,7 @@ void WinMainCRTStartup(void){
 
   LARGE_INTEGER li; QueryPerformanceCounter(&li); g_master=(unsigned int)li.QuadPart | 1u; g_rng=g_master; (void)xrnd(); g_rngFx=g_master^0x9E3779B9u; if(!g_rngFx)g_rngFx=0x12345678u;
   g_player.radius=14.0f; g_depth=1;
+  save_load(); /* 메타 세이브 로드 (§08 N2) */
   snd_init();
 
   glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE);
@@ -2125,6 +2197,7 @@ void WinMainCRTStartup(void){
     /* 상태 전이 (§17) */
     if(g_state==ST_TITLE){
       if(g_mousePressed||g_kpress[VK_SPACE]||g_kpress[VK_RETURN]){ g_kpress[VK_SPACE]=0; g_kpress[VK_RETURN]=0; new_run(); }
+      if(g_kpress['C']){ g_kpress['C']=0; g_state=ST_CODEX; } /* 코덱스 뷰어 진입 */
       g_time+=dt;
       /* 타이틀 배경 파티클 (fx — 결정론 무관) */
       if((g_rngFx&7)<3) spawn_part((fxsym()*0.5f+0.5f)*(float)g_winW,(float)g_winH+10.0f,fxsym()*12.0f,-30.0f-(fxsym()*0.5f+0.5f)*40.0f,3.0f,1.5f+(fxsym()*0.5f+0.5f)*2.0f,0.0f,0.8f,1.0f);
@@ -2167,6 +2240,9 @@ void WinMainCRTStartup(void){
       if(g_kpress['C']){ g_kpress['C']=0; g_optCRT-=0.5f; if(g_optCRT<0.0f)g_optCRT=1.0f; }
       if(g_kpress['M']){ g_kpress['M']=0; g_mute=!g_mute; }
       acc=0.0f;
+    } else if(g_state==ST_CODEX){ /* 코덱스 뷰어 */
+      if(g_kpress[VK_ESCAPE]||g_kpress['C']){ g_kpress[VK_ESCAPE]=0; g_kpress['C']=0; g_state=ST_TITLE; }
+      g_time+=dt; acc=0.0f;
     } else { /* GAMEOVER */
       if(g_kpress['R']){ g_kpress['R']=0; new_run(); }
       if(g_kpress[VK_ESCAPE]){ g_kpress[VK_ESCAPE]=0; g_state=ST_TITLE; memset(g_part,0,sizeof(g_part)); g_time=0; }
@@ -2183,6 +2259,7 @@ void WinMainCRTStartup(void){
     else if(g_state==ST_PLAY){ camera_update(dt); render_world(w,h); render_hud(w,h); render_post(w,h); }
     else if(g_state==ST_UPG){ render_upgrade(w,h); render_post(w,h); }
     else if(g_state==ST_PAUSE){ render_pause(w,h); render_post(w,h); }
+    else if(g_state==ST_CODEX){ render_codex(w,h); }
     else { render_gameover(w,h); render_post(w,h); }
     SwapBuffers(dc);
     snd_update();
