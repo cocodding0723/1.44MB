@@ -373,7 +373,7 @@ static float ene_speed(int t){
 
 /* ---- 3x5 비트맵 폰트 (§15 — 파일 없음, 코드 인코딩) ---- */
 #define GF(a,b,c,d,e) (unsigned short)(((a)<<12)|((b)<<9)|((c)<<6)|((d)<<3)|(e))
-static const unsigned short g_font[40]={
+static const unsigned short g_font[44]={
   GF(7,5,5,5,7),GF(2,6,2,2,7),GF(7,1,7,4,7),GF(7,1,7,1,7),GF(5,5,7,1,1), /* 0-4 */
   GF(7,4,7,1,7),GF(7,4,7,5,7),GF(7,1,1,2,2),GF(7,5,7,5,7),GF(7,5,7,1,7), /* 5-9 */
   GF(2,5,7,5,5),GF(6,5,6,5,6),GF(7,4,4,4,7),GF(6,5,5,5,6),GF(7,4,7,4,7), /* A-E */
@@ -381,12 +381,14 @@ static const unsigned short g_font[40]={
   GF(5,5,6,5,5),GF(4,4,4,4,7),GF(5,7,7,5,5),GF(6,5,5,5,5),GF(7,5,5,5,7), /* K-O */
   GF(7,5,7,4,4),GF(7,5,5,7,1),GF(7,5,6,5,5),GF(7,4,7,1,7),GF(7,2,2,2,2), /* P-T */
   GF(5,5,5,5,7),GF(5,5,5,5,2),GF(5,5,7,7,5),GF(5,5,2,5,5),GF(5,5,2,2,2), /* U-Y */
-  GF(7,1,2,4,7),GF(0,0,7,0,0),GF(0,0,0,0,2),GF(0,2,0,2,0),GF(1,1,2,4,4)  /* Z - . : / */
+  GF(7,1,2,4,7),GF(0,0,7,0,0),GF(0,0,0,0,2),GF(0,2,0,2,0),GF(1,1,2,4,4), /* Z - . : / */
+  GF(0,0,0,2,4),GF(2,2,2,0,2),GF(7,1,2,0,2),GF(2,2,0,0,0)                 /* , ! ? ' (서사 §08) */
 };
 static int glyph_idx(char c){
   if(c>='0'&&c<='9') return c-'0';
   if(c>='A'&&c<='Z') return 10+c-'A';
   if(c=='-') return 36; if(c=='.') return 37; if(c==':') return 38; if(c=='/') return 39;
+  if(c==',') return 40; if(c=='!') return 41; if(c=='?') return 42; if(c=='\'') return 43;
   return -1;
 }
 static void draw_text(float x,float y,float s,const char *t,float r,float g,float b,float a){
@@ -403,6 +405,39 @@ static void draw_text(float x,float y,float s,const char *t,float r,float g,floa
   glEnd();
 }
 static float text_w(const char *t,float s){ int n=0; for(;*t;t++)n++; return n>0?((float)n*4.0f-1.0f)*s:0.0f; }
+/* 다줄 교신 렌더 (서사 §08): \n 분할, cut=표시 글자수(타이핑, <0=전체) */
+static void draw_text_multi(float x,float y,float s,const char *t,float r,float g,float b,float a,int cut){
+  char line[80]; int n=0, shown=0; float ly=y;
+  for(;;t++){ char c=*t;
+    if(c==0){ line[n]=0; draw_text(x,ly,s,line,r,g,b,a); break; }
+    if(c=='\n'){ line[n]=0; draw_text(x,ly,s,line,r,g,b,a); ly+=s*6.5f; n=0; continue; }
+    if(cut>=0&&shown>=cut){ line[n]=0; draw_text(x,ly,s,line,r,g,b,a); break; }
+    if(n<79) line[n++]=c; shown++;
+  }
+}
+/* ---- 서사 교신 (영문 기계 교신체, §08; ECHO=신뢰불가 화자) ---- */
+static const char* g_xmitLayer[6]={
+  "ECHO: YOU ARE AWAKE.\nTHE COOLANT STILL HOLDS.\nDESCEND. PURGE THE CORE.",
+  "ECHO: THE WALLS LISTEN HERE.\nTRUST THE SIGNAL, NOT THE WALLS.",
+  "ECHO: COMPUTE LAYER.\nSOMETHING COUNTS YOUR STEPS.",
+  "ECHO: MEMORY OPENS.\nIT REMEMBERS WHAT YOU WERE.",
+  "ECHO: POWER FLOODS THE GRID.\nDO NOT STOP MOVING.",
+  "ECHO: KERNEL. THE CORE IS NEAR.\nSO IS THE TRUTH, REVENANT."
+};
+static const char* g_xmitBoss[3]={
+  "THE CORE: ACCESS DENIED.\nI AM THE FIREWALL. TURN BACK.",
+  "THE WARDEN: ARCHIVE 7741.\nYOU WERE DELETED FOR A REASON.\nI AM THAT REASON.",
+  "THE NEXUS: WE ARE THE NETWORK.\nWE HAVE WAITED FOR YOU."
+};
+static const char* g_xmitDeath[4]={
+  "THE COOLANT TAKES YOU BACK.",
+  "COMPUTE RECALCULATES YOU.",
+  "MEMORY REWRITES YOU. THE ROT REMEMBERS.",
+  "THE KERNEL KEEPS YOUR ECHO."
+};
+static const char* g_xmitMsg; static float g_xmitT; static const char* g_deathMsg;
+static int narr_zone(int d){ return d<=1?0:(d<=2?1:(d<=3?2:(d<=5?3:(d<=8?4:5)))); }
+static void set_xmit(const char*m){ g_xmitMsg=m; g_xmitT=0.0f; }
 static void fmt_int(char *buf,int v){ /* 자작 정수→글리프 (printf 금지, rules/20) */
   char tmp[12]; int n=0,i;
   if(v<0)v=0;
@@ -558,7 +593,7 @@ static void generate(void){
   g_player.pos.y=(g_grid[SGY][SGX].ry+g_grid[SGY][SGX].rh*0.5f)*TILEF;
   g_player.vel.x=0; g_player.vel.y=0; g_cam=g_player.pos;
 }
-static void descend(void){ g_depth++; g_rng=g_master^((unsigned)g_depth*2654435761u); if(!g_rng)g_rng=1; (void)xrnd(); (void)xrnd(); generate(); }
+static void descend(void){ g_depth++; g_rng=g_master^((unsigned)g_depth*2654435761u); if(!g_rng)g_rng=1; (void)xrnd(); (void)xrnd(); generate(); set_xmit(g_xmitLayer[narr_zone(g_depth)]); }
 static void new_run(void){
   LARGE_INTEGER li; QueryPerformanceCounter(&li); g_master=(unsigned int)li.QuadPart|1u;
   g_depth=1; g_rng=g_master^2654435761u; if(!g_rng)g_rng=1; (void)xrnd();
@@ -569,6 +604,7 @@ static void new_run(void){
   g_shotCount=0; g_leechKills=0; g_shieldUp=0;
   g_regenT=0; g_shieldT=0; g_thornT=0; g_slowT=0; g_slowAcc=0; g_frenzy=0; g_siphonK=0;
   generate();
+  set_xmit(g_xmitLayer[0]); g_deathMsg=0; /* 서사: 1레이어 교신 */
   g_state=ST_PLAY;
 }
 
@@ -666,6 +702,7 @@ static void hurt_player(float dmg){
     g_hitstop=0.2f; add_trauma(0.8f);
     burst(g_player.pos.x,g_player.pos.y,32,320.0f,1.0f,0.9f,0.9f);
     spawn_ring(g_player.pos.x,g_player.pos.y,10.0f,420.0f,0.5f,1.0f,0.4f,0.5f);
+    { int d=g_depth; g_deathMsg=g_xmitDeath[d<=2?0:(d<=4?1:(d<=7?2:3))]; } /* 서사: 사망 에피타프 */
     g_state=ST_OVER;
   }
 }
@@ -1308,6 +1345,7 @@ static void combat_update(float dt){
        &&ptx>=c->rx+1&&ptx<c->rx+c->rw-1&&pty>=c->ry+1&&pty<c->ry+c->rh-1){
       int kk=g_depth/3;
       g_boss.active=1; { int m3=(kk-1)%3; g_boss.type=(unsigned char)((m3==0)?0:(m3==1)?1:2); } /* CORE(d3)/WARDEN(d6)/NEXUS(d9) 순환 */
+      set_xmit(g_xmitBoss[g_boss.type]); /* 서사: 보스 인트로 */
       g_boss.maxhp=g_boss.hp=400.0f*(1.0f+0.5f*(float)(kk-1));
       g_boss.phase=1; g_boss.flash=0; g_boss.dashState=0;
       g_boss.pos.x=(c->rx+c->rw*0.5f)*TILEF; g_boss.pos.y=(c->ry+c->rh*0.5f)*TILEF;
@@ -1885,6 +1923,18 @@ static void render_hud(int w,int h){
   /* 방 클리어 정화 플래시 */
   if(g_clearFx>0.0f&&g_optFlash>0.0f){ glColor4f(0.5f,1.0f,0.95f,g_clearFx*0.22f*g_optFlash);
     glBegin(GL_QUADS); glVertex2f(0,0); glVertex2f((float)w,0); glVertex2f((float)w,(float)h); glVertex2f(0,(float)h); glEnd(); }
+  /* 서사 교신 오버레이 (§08, 비차단 — 레이어/보스 진입 시) */
+  if(g_xmitMsg && g_xmitT<6.5f){
+    float a=1.0f; if(g_xmitT<0.3f)a=g_xmitT/0.3f; else if(g_xmitT>5.5f)a=6.5f-g_xmitT; if(a>1.0f)a=1.0f;
+    int cut=(int)(g_xmitT*30.0f); float by=(float)h-98.0f;
+    glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(0.0f,0.02f,0.05f,0.62f*a);
+    glBegin(GL_QUADS); glVertex2f(26.0f,by-12.0f); glVertex2f(610.0f,by-12.0f); glVertex2f(610.0f,by+58.0f); glVertex2f(26.0f,by+58.0f); glEnd();
+    glBlendFunc(GL_SRC_ALPHA,GL_ONE);
+    glColor4f(0.3f,0.9f,1.0f,0.85f*a); /* ECHO 시질 바 */
+    glBegin(GL_QUADS); glVertex2f(26.0f,by-12.0f); glVertex2f(31.0f,by-12.0f); glVertex2f(31.0f,by+58.0f); glVertex2f(26.0f,by+58.0f); glEnd();
+    draw_text_multi(44.0f,by,2.0f,g_xmitMsg,0.55f,0.95f,1.0f,0.9f*a,cut);
+  }
   /* 커스텀 네온 십자선 (스크린 좌표 — 셰이크 비적용) */
   { float mx=(float)g_mouseX, my=(float)g_mouseY;
     glColor3f(1.0f,0.3f,0.6f); glBegin(GL_LINES);
@@ -1974,6 +2024,7 @@ static void render_gameover(int w,int h){
     fmt_int(buf,g_depth); { const char*p=buf; while(*p)line[n++]=*p++; }
     { const char*s2=" REACHED"; while(*s2)line[n++]=*s2++; } line[n]=0;
     center_text(w,cy+58.0f,2.4f,line,1.0f,1.0f,1.0f,0.85f); }
+  if(g_deathMsg) center_text(w,cy+90.0f,1.6f,g_deathMsg,0.75f,0.5f,0.55f,0.8f); /* 서사: 사망 에피타프 */
   /* 점수 분해 (§17) */
   { float y=cy+120.0f; char buf[12]; char line[32]; int n;
     n=0; { const char*s="LAYER X1000 : "; while(*s)line[n++]=*s++; } fmt_int(buf,g_depth*1000); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
@@ -2085,6 +2136,7 @@ void WinMainCRTStartup(void){
       if(g_kpress['M']){ g_kpress['M']=0; g_mute=!g_mute; }
       if(g_kpress[VK_SPACE]){ g_kpress[VK_SPACE]=0; g_wantDash=1; } /* 에지 → 래치 */
       if(g_kpress['Q']){ g_kpress['Q']=0; g_wantEmp=1; }
+      if(g_xmitMsg) g_xmitT+=dt; /* 서사 교신 타이머 (표시 전용) */
       acc+=dt;
       while(acc>=STEP){
         if(g_hitstop>0.0f){ g_hitstop-=STEP; }
