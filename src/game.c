@@ -183,7 +183,7 @@ static void snd_update(void){
 #define MAXEBUL 256
 #define MAXENE 128
 #define MAXPART 768
-#define MAXPICK 128
+#define MAXPICK 256
 #define MAXRING 32
 #define MAXAFTER 32
 #define SHAKE_MAX 20.0f
@@ -263,7 +263,7 @@ static void draw3(int rare){ /* 시너지 가중 추첨 (§7), 슬롯 간 중복
         if(g_mod[M_MAGNET]&&i==M_SIPHON) ww*=2;
         if(g_mod[M_SIPHON]&&i==M_MAGNET) ww*=2;
         w[i]=ww;
-      } else w[i]=10;
+      } else { w[i]=10; if(mi==M_GLASSCANNON&&g_mod[M_GLASSCANNON]>=2) w[i]=0; } /* GC 캡2: 3스택 무의미 추첨 방지 */
       total+=w[i];
     }
     if(total<=0) continue;
@@ -773,7 +773,7 @@ static void kill_enemy(int idx){
     g_siphonK++;
     if(g_siphonK>=th){ g_siphonK=0; int extra=2+g_mod[M_SIPHON]; if(extra>5)extra=5; int q;
       for(q=0;q<extra;q++) spawn_pickup(e->pos.x,e->pos.y,0);
-      g_frenzy+=0.10f; if(g_frenzy>1.5f)g_frenzy=1.5f; }
+      if(g_mod[M_FRENZY]){ g_frenzy+=0.10f; float fm=0.5f*(float)g_mod[M_FRENZY]; if(fm>1.5f)fm=1.5f; if(g_frenzy>fm)g_frenzy=fm; } } /* 광란 너지는 FRENZY 보유 시만 (캡 존중) */
   }
   if(g_mod[M_LEECH]){ /* 흡혈: 12킬마다 1HP (스택당 -3, 최소 3) */
     int th=12-3*(g_mod[M_LEECH]-1); if(th<3)th=3;
@@ -903,17 +903,18 @@ static void boss_update(float dt){
     if(B->pos.x<mnx)B->pos.x=mnx; if(B->pos.x>mxx)B->pos.x=mxx;
     if(B->pos.y<mny)B->pos.y=mny; if(B->pos.y>mxy)B->pos.y=mxy;
     for(kk2=0;kk2<3;kk2++){ float a=B->segAng+(float)kk2*2.0943951f; nx3[kk2]=B->pos.x+f_cos(a)*nd; ny3[kk2]=B->pos.y+f_sin(a)*nd; }
-    float halfw=ph==3?9.0f:7.0f;
+    float halfw=7.0f; /* 전 페이즈 동일 — ph3 압박은 케이지 수축으로 (보이지 않는 폭증 제거) */
     for(kk2=0;kk2<3;kk2++){ int k3=(kk2+1)%3; /* 회전 삼각 빔케이지 (3변) */
       float ex=nx3[k3]-nx3[kk2], ey=ny3[k3]-ny3[kk2], el=f_sqrt(ex*ex+ey*ey); if(el<0.01f)el=0.01f;
       if(beam_hit(nx3[kk2],ny3[kk2],ex/el,ey/el,halfw,g_player.pos.x,g_player.pos.y,g_player.radius,el)) hurt_player(2.0f); }
-    if(ph>=2){ B->t1+=dt; /* 노드 방사 링 */
-      if(B->t1>=(ph==3?2.8f:2.2f)){ B->t1=0.0f; int b2;
-        for(kk2=0;kk2<3;kk2++) for(b2=0;b2<12;b2++){ float a=(float)b2*0.5235988f; spawn_ebul(nx3[kk2],ny3[kk2],f_cos(a),f_sin(a),240.0f,4.0f); }
-        snd_play(SFX_SHOOT); } }
-    if(ph==3){ if(B->shrink>70.0f) B->shrink-=18.0f*dt; if(g_trauma<0.06f) g_trauma=0.06f; /* 수축 격노 + 본체 링 */
-      B->t2+=dt; if(B->t2>=1.6f){ B->t2=0.0f; int b2; for(b2=0;b2<16;b2++){ float a=B->segAng+(float)b2*0.3926991f; spawn_ebul(B->pos.x,B->pos.y,f_cos(a),f_sin(a),220.0f,4.0f); } } }
-    B->t3+=dt; if(B->t3>=7.0f){ B->t3=0.0f; spawn_enemy(1,nx3[0],ny3[0],0); } /* 터릿 소환 */
+    if(ph>=2){ B->t1+=dt; /* 노드 방사 링 (밀도 완화: 노드당 8발) */
+      if(B->t1>=(ph==3?3.6f:2.2f)){ B->t1=0.0f; int b2;
+        for(kk2=0;kk2<3;kk2++) for(b2=0;b2<8;b2++){ float a=(float)b2*0.7853982f; spawn_ebul(nx3[kk2],ny3[kk2],f_cos(a),f_sin(a),240.0f,4.0f); }
+        snd_play(SFX_PHASE); } } /* 36발→24발, 위협 사운드 */
+    if(ph==3){ if(B->shrink>70.0f) B->shrink-=12.0f*dt; if(g_trauma<0.06f) g_trauma=0.06f; /* 수축 18→12px/s, 본체 링 16→12발 */
+      B->t2+=dt; if(B->t2>=1.6f){ B->t2=0.0f; int b2; for(b2=0;b2<12;b2++){ float a=B->segAng+(float)b2*0.5235988f; spawn_ebul(B->pos.x,B->pos.y,f_cos(a),f_sin(a),220.0f,4.0f); } } }
+    B->t3+=dt; if(B->t3>=8.0f){ B->t3=0.0f; int tc=0,tt; for(tt=0;tt<MAXENE;tt++) if(g_ene[tt].active&&g_ene[tt].type==1)tc++; /* 터릿 소환: 최대 2, 방 경계 클램프 */
+      if(tc<2){ float tsx=nx3[0], tsy=ny3[0]; if(tsx<mnx)tsx=mnx; if(tsx>mxx)tsx=mxx; if(tsy<mny)tsy=mny; if(tsy>mxy)tsy=mxy; spawn_enemy(1,tsx,tsy,0); } }
     for(kk2=0;kk2<3;kk2++){ float ndx=nx3[kk2]-g_player.pos.x, ndy=ny3[kk2]-g_player.pos.y, rr=14.0f+g_player.radius; if(ndx*ndx+ndy*ndy<rr*rr) hurt_player(1.0f); }
   }
   /* 트레일 수명/접촉 */
@@ -962,8 +963,8 @@ static void combat_update(float dt){
       float ca=f_cos(ang), sa=f_sin(ang);
       float ux=dx*ca-dy*sa, uy=dx*sa+dy*ca;
       float dmg=BUL_DMG*(1.0f+0.25f*(float)g_mod[M_POWER]), rr=BUL_R;
-      if(g_mod[M_VENGEANCE]){ float miss=1.0f-g_pHP/g_pMaxHP; if(miss<0.0f)miss=0.0f; dmg*=1.0f+0.20f*(float)g_mod[M_VENGEANCE]*miss; } /* 보복: 저HP=뎀↑ */
-      if(g_mod[M_KINETIC]){ float sp01=psp/MAXSPEED; if(sp01>1.0f)sp01=1.0f; dmg*=1.0f+0.15f*(float)g_mod[M_KINETIC]*sp01; } /* 운동: 이속=뎀↑ */
+      if(g_mod[M_VENGEANCE]){ float miss=1.0f-g_pHP/g_pMaxHP; if(miss<0.0f)miss=0.0f; dmg*=1.0f+0.20f*(float)g_mod[M_VENGEANCE]*(0.25f+0.75f*miss); } /* 보복: 저HP=뎀↑ (풀피 +5%, 저체 +17%/스택) */
+      if(g_mod[M_KINETIC]){ float sp01=psp/MAXSPEED; if(sp01>1.0f)sp01=1.0f; dmg*=1.0f+0.22f*(float)g_mod[M_KINETIC]*(0.4f+0.6f*sp01); } /* 운동: 이속=뎀↑ (정지 +9%, 전속 +22%/스택) */
       if(g_mod[M_GLASSCANNON]) dmg*=1.0f+0.60f*(float)(g_mod[M_GLASSCANNON]>2?2:g_mod[M_GLASSCANNON]); /* 글래스캐논: +60%/스택(캡2) */
       if(critc>0.0f&&rnd01()<critc){ dmg*=2.0f; rr*=1.3f; }
       if(big){ dmg*=4.0f; rr*=2.0f; }
@@ -1175,20 +1176,20 @@ static void combat_update(float dt){
         if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx;
         float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
         if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny;
-      } else if(t2<1.45f){ /* 돌진: 520px/s + 벽 1회 반사 */
+      } else if(t2<1.45f){ /* 돌진: 520px/s + 벽 1회 반사 (코너 진동 방지: ±0.6r 2점) */
         float nx=e->pos.x+e->vel.x*dt, ex2=nx+(e->vel.x>0?r:-r);
-        if(is_wall_w(ex2,e->pos.y)) e->vel.x=-e->vel.x; else e->pos.x=nx;
+        if(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f)) e->vel.x=-e->vel.x; else e->pos.x=nx;
         float ny=e->pos.y+e->vel.y*dt, ey2=ny+(e->vel.y>0?r:-r);
-        if(is_wall_w(e->pos.x,ey2)) e->vel.y=-e->vel.y; else e->pos.y=ny;
+        if(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2)) e->vel.y=-e->vel.y; else e->pos.y=ny;
       } else if(t2<1.95f){ e->vel.x*=0.86f; e->vel.y*=0.86f; e->pos.x+=e->vel.x*dt; e->pos.y+=e->vel.y*dt; }
       else { e->t2=0.0f; }
     } else if(e->type==6){ /* WEAVER: 궤도 비행 + 기뢰 설치 (g_boom 재활용) */
       float px=-dy/dist, py=dx/dist, dir=dist<220.0f?1.0f:(dist>300.0f?-1.0f:0.0f);
       float vx=(dx/dist*dir+px)*spd+kx, vy=(dy/dist*dir+py)*spd+ky;
       float nx=e->pos.x+vx*dt, ex2=nx+(vx>0?r:-r);
-      if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx;
+      if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx; else e->kvel.x*=0.3f; /* 벽 스터터 억제 */
       float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
-      if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny;
+      if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny; else e->kvel.y*=0.3f;
       e->t2+=dt;
       float dropInt=(e->affix&2)?1.6f:2.3f;
       if(e->t2>=dropInt){ e->t2=0.0f; int q; for(q=0;q<MAXBOOM;q++) if(!g_boom[q].active){
@@ -1464,7 +1465,7 @@ static void draw_enemy(Enemy*e){
     float pxv=-hy, pyv=hx;
     circle_fill(x,y,r*1.5f,8,fr,fg,fb,gpop);
     { float t2=e->t2/((e->affix&2)?0.7f:1.0f);
-      if(t2>=0.8f&&t2<1.1f){ float wa=(t2-0.8f)/0.3f; glColor4f(1.0f,0.4f,0.45f,wa*0.7f);
+      if(t2>=0.5f&&t2<1.1f){ float wa=(t2-0.5f)/0.6f; glColor4f(1.0f,0.4f,0.45f,wa*0.7f);
         glBegin(GL_LINES); glVertex2f(x,y); glVertex2f(x+hx*260.0f,y+hy*260.0f); glEnd(); } }
     if(fl){ fr=fg=fb=1.0f; } glColor3f(fr*flick,fg*flick,fb*flick);
     glBegin(GL_TRIANGLES);

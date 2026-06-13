@@ -28,6 +28,13 @@ ultracode 병렬 워크플로우로 5스트림 설계(design-augmenter) → 직�
 - **디버그 보스 스폰 시 본체 안 보임** = boss_update가 `g_grid[g_downGY][g_downGX]` 보스방 경계로 B->pos 클램프 → 디버그가 그 방을 안 맞추면 화면 밖. 디버그로 보스 확인 시 플레이어+보스를 다운링크방 중심으로 텔레포트해야 함. (NEXUS 코드는 정상)
 - burst()는 fxsym 사용(검증세션에서 변경)이라 보스 페이즈 burst가 sim 시드 비오염.
 
+## v1.3a QA 밸런스 패스 (2026-06-13)
+5차원 병렬 QA(39발견, HIGH 8) 후 튜닝. **교훈: `hurt_player`가 진입부 `if(g_pIfr>0||g_dashT>0)return`로 self-i-frame 가드 → 같은 틱 다중 피격 불가.** QA가 "NEXUS 5HP/틱 즉사"를 HIGH로 올렸으나 이 가드를 놓친 오판 → 무효. 적대적 검증도 self-guard 놓칠 수 있으니 hurt_player 호출 다중성 판단 시 진입 가드 먼저 확인.
+- 적용: NEXUS 밀도 완화(노드링 8발/3.6s·본체 12발·수축 12px/s·halfw 7고정·터릿 캡2/8s/클램프·SFX_PHASE), LANCER 코너진동(±0.6r)·예측선 0.6s, WEAVER 벽 스터터 damp, GLASS 3스택 캡, SIPHON 너지 FRENZY 가드, MAXPICK 256, KINETIC/VENGEANCE 버프. → 78,848B.
+- 문서 동기화: DESIGN §12 표(L5 LANCER/L6 WEAVER/L9 NEXUS/L12 CORE 순환)·§20 bullets[256]·§25 노트·§26 v1.3a, docs/01·03(18/8/3/6), docs/05 TC-BOSS-01 수정+TC-ENM-06/07·TC-BOSS-05·TC-MOD-06/07 추가.
+
+## 커밋됨 (origin/master)
+- 533be39 feat(M4-M6+A+B 코드+DESIGN §26) / aea3e45 docs / a5f9654 chore. v1.3a QA 수정은 별도 커밋 예정.
+
 ## 미해결
-- B 비주얼/밸런스 사용자 컨펌 대기(CONFIRMATIONS.md). 여전히 **전부 미커밋**.
-- A+B 모두 docs/DESIGN 정식 changelog 미반영(확장이라 추후 §8/§9/§7 갱신 필요).
+- B 비주얼 사용자 컨펌 대기(CONFIRMATIONS.md ⏳). A는 ✅.
