@@ -41,7 +41,17 @@ metadata:
 - **해금=세이브 스탯 파생**(신규 세이브 필드 0). 타이틀 A/D 순환 셀렉터, 미해금은 흐리게+"LOCKED", Space 시작은 perso_unlocked 게이트. new_run에서 페르소나별 g_mod 시작빌드 + 인트로 교신(g_persoIntro).
 - 검증: 타이틀 DAEMON 흐리게+LOCKED 표시 확인(bestLayer<5). 86,016B(캡 5.8%).
 
+## N3b 최종 보스 + 다중 엔딩 (2026-06-14, 검증 완료)
+- 사용자 결정 A: 엔드리스에 **L12 KERNEL 최종 CORE** 추가 → 격파 시 엔딩. 보스 스폰에서 `g_depth>=12`면 `g_finalBoss=1`, type=CORE 강제, HP ×1.4, 전용 인트로("THE CORE: YOU REACHED ME. FEW DO. NONE LEAVE.").
+- boss_die: g_finalBoss면 일반 보상 대신 `compute_ending()` → ST_ENDING(=6). bestLayer/score 갱신 + FRAG08 해금 + save_write.
+- **4 엔딩**(compute_ending 우선순위): ROT(corruption≥10, 적색) > ESCAPE(persona==GHOST, 테알) > MERGE(코덱스≥6, 보라) > PURGE(기본, 청색). 각 4줄 모놀로그(g_endText) + 색상 테마.
+- render_ending(ST_ENDING), R=새 런/ESC=타이틀. 타이틀에 "GOAL: REACH AND PURGE THE CORE - LAYER 12" 힌트.
+- 검증: 임시 E디버그로 엔딩 순환 → ESCAPE 화면(테알+4줄 모놀로그+프롬프트) 정상 렌더 확인. 디버그 되돌림. 88,064B(캡 6.0%).
+
+## 서사 N1~N3 완료 (origin/master)
+N1 교신 / N2 메타세이브 / N3a 페르소나 / N3b 엔딩 — 세피리아式 풀 루프(선택 캐릭터→하강 교신→해금 코덱스→부패도 메타→L12 최종보스→조건부 다중엔딩) 본편 DESCENT에 완성.
+
 ## 미해결
-- N3b 다중 엔딩(PURGE/MERGE/ESCAPE/ROT) — 본편이 엔드리스라 "승리/도달" 조건 설계 필요(예: 깊은 KERNEL 도달 or NEXUS 격파 시 코덱스/부패도 기반 엔딩). 무기 진화는 OVERCLOCK 의존(보류).
-- 보스/사망 교신은 코드 경로 동일(레이어 교신 검증됨)이나 인게임 실측 미완.
-- 서사 비주얼(시질·교신 UI) rules/50 ⏳.
+- 무기 진화는 OVERCLOCK 의존(보류). OVERCLOCK 자체 red-team 게이트.
+- 보스/사망/엔딩 교신은 인게임 자연 도달 실측 미완(코드 경로는 검증됨).
+- 서사 비주얼(시질·교신 UI·엔딩) rules/50 ⏳.

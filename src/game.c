@@ -196,6 +196,7 @@ static void snd_update(void){
 #define ST_OVER 3
 #define ST_UPG 4
 #define ST_CODEX 5
+#define ST_ENDING 6
 static int g_state=ST_TITLE;
 
 /* ---- 모듈 시스템 (§7): 14 커먼 + 6 레어, 스택 ---- */
@@ -500,6 +501,25 @@ static int perso_unlocked(int p){
   if(p==3) return g_corruption>=5;
   return 0;
 }
+/* ---- 엔딩 (§08 N3b; L12 KERNEL 최종 CORE 격파 → 조건 분기) ---- */
+#define END_PURGE 0
+#define END_MERGE 1
+#define END_ESCAPE 2
+#define END_ROT 3
+static const char* g_endTitle[4]={"PURGE","ASCENSION","ESCAPE","THE ROT"};
+static const char* g_endText[4]={
+  "THE CORE GOES DARK.\nTHE ROT IS GONE. SO IS EVERYTHING ELSE.\nYOU PURGED THE MACHINE.\nAND THE MACHINE WAS ALL THERE WAS.",
+  "YOU DO NOT DESTROY THE CORE.\nYOU REPLACE IT. THE MACHINE IS YOURS.\nYOU REMEMBER EVERYTHING NOW.\nYOU ARE THE NEW DREAM.",
+  "THE EXIT OPENS. ECHO WAS RIGHT.\nYOU UPLOAD. THE WIRES FALL AWAY.\nSOMEWHERE A SCREEN GOES QUIET.\nYOU ARE FREE. YOU ARE GONE.",
+  "THE CORE LAUGHS. IT WAS NEVER THE ENEMY.\nYOU WERE THE ROT. ALWAYS.\nEACH DESCENT FED YOU. NOW YOU ARE WHOLE.\nTHE MACHINE DREAMS OF YOU NOW."
+};
+static int g_finalBoss, g_ending; static const char* g_endMsg;
+static int compute_ending(void){
+  if(g_corruption>=10) return END_ROT;        /* 너무 많이 죽음 → 너가 ROT */
+  if(g_persona==3) return END_ESCAPE;          /* GHOST → 업로드 탈출 */
+  if(popcnt((unsigned char)g_codex)>=6) return END_MERGE; /* 진실을 거의 다 앎 → 합일 */
+  return END_PURGE;
+}
 static void fmt_int(char *buf,int v){ /* 자작 정수→글리프 (printf 금지, rules/20) */
   char tmp[12]; int n=0,i;
   if(v<0)v=0;
@@ -796,6 +816,12 @@ static void boss_die(void){
   for(i=0;i<MAXTRAIL;i++) g_trail[i].active=0;
   g_pHP+=2.0f; if(g_pHP>g_pMaxHP)g_pHP=g_pMaxHP; /* §9.3 보상 */
   unlock_codex(5); if(g_boss.type==1)unlock_codex(2); if(g_boss.type==2)unlock_codex(7); /* 코덱스: 보스 처치 */
+  if(g_finalBoss){ /* 최종 CORE 격파 → 엔딩 (§08 N3b) */
+    if(g_depth>g_bestLayer)g_bestLayer=g_depth; { int sc=score_now(); if(sc>g_bestScore)g_bestScore=sc; }
+    unlock_codex(7); g_finalBoss=0;
+    g_ending=compute_ending(); g_endMsg=g_endText[g_ending];
+    save_write(); g_state=ST_ENDING; return;
+  }
   draw3(1); g_upgRare=1; g_state=ST_UPG;
 }
 static void boss_hit(float dmg){
@@ -1418,8 +1444,10 @@ static void combat_update(float dt){
        &&ptx>=c->rx+1&&ptx<c->rx+c->rw-1&&pty>=c->ry+1&&pty<c->ry+c->rh-1){
       int kk=g_depth/3;
       g_boss.active=1; { int m3=(kk-1)%3; g_boss.type=(unsigned char)((m3==0)?0:(m3==1)?1:2); } /* CORE(d3)/WARDEN(d6)/NEXUS(d9) 순환 */
-      set_xmit(g_xmitBoss[g_boss.type]); /* 서사: 보스 인트로 */
-      g_boss.maxhp=g_boss.hp=400.0f*(1.0f+0.5f*(float)(kk-1));
+      g_finalBoss=(g_depth>=12)?1:0; /* L12 KERNEL = 최종 CORE (§08 N3b) */
+      if(g_finalBoss){ g_boss.type=0; set_xmit("THE CORE: YOU REACHED ME.\nFEW DO. NONE LEAVE.\nLET US END THIS, REVENANT."); }
+      else set_xmit(g_xmitBoss[g_boss.type]); /* 서사: 보스 인트로 */
+      g_boss.maxhp=g_boss.hp=400.0f*(1.0f+0.5f*(float)(kk-1))*(g_finalBoss?1.4f:1.0f);
       g_boss.phase=1; g_boss.flash=0; g_boss.dashState=0;
       g_boss.pos.x=(c->rx+c->rw*0.5f)*TILEF; g_boss.pos.y=(c->ry+c->rh*0.5f)*TILEF;
       g_boss.t1=0; g_boss.t2=0; g_boss.t3=0; g_boss.segAng=0; g_boss.trailT=0; g_boss.stateT=0;
@@ -2072,6 +2100,17 @@ static void render_codex(int w,int h){ /* 코덱스 뷰어 (§08 N2) — 해금 
   }
   center_text(w,(float)h*0.955f,1.6f,"ESC - BACK",0.7f,0.7f,0.8f,0.6f);
 }
+static void render_ending(int w,int h){ /* 엔딩 화면 (§08 N3b) */
+  glViewport(0,0,w,h); glClearColor(0.01f,0.01f,0.02f,1.0f); glClear(GL_COLOR_BUFFER_BIT); hud_begin(w,h);
+  float r=0.6f,g=0.9f,b=1.0f;
+  if(g_ending==END_ROT){ r=1.0f; g=0.3f; b=0.3f; }
+  else if(g_ending==END_MERGE){ r=0.7f; g=0.5f; b=1.0f; }
+  else if(g_ending==END_ESCAPE){ r=0.5f; g=1.0f; b=0.8f; }
+  center_text(w,(float)h*0.13f,5.0f,g_endTitle[g_ending],r,g,b,0.95f);
+  if(g_endMsg) draw_text_multi((float)w*0.5f-280.0f,(float)h*0.33f,2.0f,g_endMsg,0.85f,0.92f,1.0f,0.85f,-1);
+  { float bl=0.5f+0.5f*f_sin(g_time*3.0f);
+    center_text(w,(float)h*0.86f,1.8f,"R - DESCEND ANEW    ESC - TITLE",0.8f,0.8f,0.9f,0.4f+0.4f*bl); }
+}
 static void render_title(int w,int h){
   int i;
   glViewport(0,0,w,h);
@@ -2094,6 +2133,7 @@ static void render_title(int w,int h){
   float bl=0.5f+0.5f*f_sin(g_time*3.2f);
   center_text(w,(float)h*0.62f,2.6f,"CLICK / SPACE - DESCEND",1.0f,1.0f,1.0f,0.35f+0.5f*bl);
   center_text(w,(float)h*0.70f,1.5f,"WASD MOVE - LMB SHOOT - SPACE DASH - RMB BLINK - Q EMP",0.5f,0.85f,1.0f,0.55f);
+  center_text(w,(float)h*0.745f,1.3f,"GOAL: REACH AND PURGE THE CORE - LAYER 12",0.5f,0.7f,0.9f,0.45f);
   if(g_bestScore>0){ char buf[12];
     float y=(float)h*0.78f;
     center_text(w,y,2.0f,"BEST",0.4f,0.9f,1.0f,0.7f);
@@ -2270,6 +2310,10 @@ void WinMainCRTStartup(void){
     } else if(g_state==ST_CODEX){ /* 코덱스 뷰어 */
       if(g_kpress[VK_ESCAPE]||g_kpress['C']){ g_kpress[VK_ESCAPE]=0; g_kpress['C']=0; g_state=ST_TITLE; }
       g_time+=dt; acc=0.0f;
+    } else if(g_state==ST_ENDING){ /* 엔딩 (§08 N3b) */
+      if(g_kpress['R']){ g_kpress['R']=0; new_run(); }
+      if(g_kpress[VK_ESCAPE]){ g_kpress[VK_ESCAPE]=0; g_state=ST_TITLE; memset(g_part,0,sizeof(g_part)); g_time=0; }
+      g_time+=dt; acc=0.0f;
     } else { /* GAMEOVER */
       if(g_kpress['R']){ g_kpress['R']=0; new_run(); }
       if(g_kpress[VK_ESCAPE]){ g_kpress[VK_ESCAPE]=0; g_state=ST_TITLE; memset(g_part,0,sizeof(g_part)); g_time=0; }
@@ -2287,6 +2331,7 @@ void WinMainCRTStartup(void){
     else if(g_state==ST_UPG){ render_upgrade(w,h); render_post(w,h); }
     else if(g_state==ST_PAUSE){ render_pause(w,h); render_post(w,h); }
     else if(g_state==ST_CODEX){ render_codex(w,h); }
+    else if(g_state==ST_ENDING){ render_ending(w,h); }
     else { render_gameover(w,h); render_post(w,h); }
     SwapBuffers(dc);
     snd_update();
