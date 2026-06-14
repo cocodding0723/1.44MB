@@ -418,6 +418,28 @@ static void draw_text_multi(float x,float y,float s,const char *t,float r,float 
     if(n<79) line[n++]=c; shown++;
   }
 }
+/* ---- 시질 (절차 벡터 엠블럼, §08 §2; 화자/캐릭터 상징) ---- */
+static void draw_sigil(float cx,float cy,float s,int type,float r,float g,float b,float a){
+  int k; glColor4f(r,g,b,a);
+  if(type==0){ /* ECHO: 점멸 삼각 + 노이즈 점 */
+    float ps=s*(0.9f+0.12f*f_sin(g_time*7.0f));
+    glBegin(GL_LINE_LOOP); glVertex2f(cx,cy-ps); glVertex2f(cx+ps*0.88f,cy+ps*0.62f); glVertex2f(cx-ps*0.88f,cy+ps*0.62f); glEnd();
+    glColor4f(0.7f,1.0f,1.0f,a); float nx=cx+fxsym()*2.5f,ny=cy+fxsym()*2.5f;
+    glBegin(GL_QUADS); glVertex2f(nx-1.5f,ny-1.5f); glVertex2f(nx+1.5f,ny-1.5f); glVertex2f(nx+1.5f,ny+1.5f); glVertex2f(nx-1.5f,ny+1.5f); glEnd();
+  } else if(type==1){ /* REVENANT: 다이아 + 깨진 링 */
+    glBegin(GL_LINE_LOOP); glVertex2f(cx,cy-s); glVertex2f(cx+s,cy); glVertex2f(cx,cy+s); glVertex2f(cx-s,cy); glEnd();
+    glBegin(GL_LINES); for(k=0;k<5;k++){ float a1=g_time*0.8f+(float)k*1.2566f,a2=a1+0.7f; glVertex2f(cx+f_cos(a1)*s*1.5f,cy+f_sin(a1)*s*1.5f); glVertex2f(cx+f_cos(a2)*s*1.5f,cy+f_sin(a2)*s*1.5f); } glEnd();
+  } else if(type==2){ /* DAEMON: 가시 클러스터 */
+    glBegin(GL_LINES); for(k=0;k<6;k++){ float aa=(float)k*1.0472f+g_time*1.6f; glVertex2f(cx,cy); glVertex2f(cx+f_cos(aa)*s*1.3f,cy+f_sin(aa)*s*1.3f); } glEnd();
+  } else if(type==3){ /* SENTINEL: 육각 이중 방패 */
+    glBegin(GL_LINE_LOOP); for(k=0;k<6;k++){ float aa=(float)k*1.0472f+0.52f; glVertex2f(cx+f_cos(aa)*s,cy+f_sin(aa)*s); } glEnd();
+    glBegin(GL_LINE_LOOP); for(k=0;k<6;k++){ float aa=(float)k*1.0472f+0.52f; glVertex2f(cx+f_cos(aa)*s*0.6f,cy+f_sin(aa)*s*0.6f); } glEnd();
+  } else { /* GHOST: 흐린 이중 링 */
+    glColor4f(r,g,b,a*0.6f);
+    glBegin(GL_LINE_LOOP); for(k=0;k<14;k++){ float aa=(float)k/14.0f*6.2832f; glVertex2f(cx+f_cos(aa)*s,cy+f_sin(aa)*s); } glEnd();
+    glBegin(GL_LINE_LOOP); for(k=0;k<14;k++){ float aa=(float)k/14.0f*6.2832f+g_time*0.5f; glVertex2f(cx+f_cos(aa)*s*0.55f,cy+f_sin(aa)*s*0.55f); } glEnd();
+  }
+}
 /* ---- 서사 교신 (영문 기계 교신체, §08; ECHO=신뢰불가 화자) ---- */
 static const char* g_xmitLayer[6]={
   "ECHO: YOU ARE AWAKE.\nTHE COOLANT STILL HOLDS.\nDESCEND. PURGE THE CORE.",
@@ -2029,12 +2051,13 @@ static void render_hud(int w,int h){
     float a=1.0f; if(g_xmitT<0.3f)a=g_xmitT/0.3f; else if(g_xmitT>5.5f)a=6.5f-g_xmitT; if(a>1.0f)a=1.0f;
     int cut=(int)(g_xmitT*30.0f); float by=(float)h-98.0f;
     glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-    glColor4f(0.0f,0.02f,0.05f,0.62f*a);
-    glBegin(GL_QUADS); glVertex2f(26.0f,by-12.0f); glVertex2f(610.0f,by-12.0f); glVertex2f(610.0f,by+58.0f); glVertex2f(26.0f,by+58.0f); glEnd();
+    glColor4f(0.0f,0.02f,0.05f,0.80f*a); /* 패널 대비 강화 (전투 중 판독) */
+    glBegin(GL_QUADS); glVertex2f(26.0f,by-12.0f); glVertex2f(616.0f,by-12.0f); glVertex2f(616.0f,by+58.0f); glVertex2f(26.0f,by+58.0f); glEnd();
+    glColor4f(0.3f,0.9f,1.0f,0.22f*a);
+    glBegin(GL_QUADS); glVertex2f(26.0f,by-12.0f); glVertex2f(29.0f,by-12.0f); glVertex2f(29.0f,by+58.0f); glVertex2f(26.0f,by+58.0f); glEnd();
     glBlendFunc(GL_SRC_ALPHA,GL_ONE);
-    glColor4f(0.3f,0.9f,1.0f,0.85f*a); /* ECHO 시질 바 */
-    glBegin(GL_QUADS); glVertex2f(26.0f,by-12.0f); glVertex2f(31.0f,by-12.0f); glVertex2f(31.0f,by+58.0f); glVertex2f(26.0f,by+58.0f); glEnd();
-    draw_text_multi(44.0f,by,2.0f,g_xmitMsg,0.55f,0.95f,1.0f,0.9f*a,cut);
+    draw_sigil(52.0f,by+22.0f,11.0f,0,0.3f,0.9f,1.0f,0.9f*a); /* ECHO 점멸 삼각 시질 (§2) */
+    draw_text_multi(74.0f,by,2.0f,g_xmitMsg,0.55f,0.95f,1.0f,0.9f*a,cut);
   }
   /* 커스텀 네온 십자선 (스크린 좌표 — 셰이크 비적용) */
   { float mx=(float)g_mouseX, my=(float)g_mouseY;
@@ -2092,7 +2115,8 @@ static void render_codex(int w,int h){ /* 코덱스 뷰어 (§08 N2) — 해금 
   center_text(w,(float)h*0.05f,3.0f,"CODEX - FRAGMENTS",0.5f,0.95f,1.0f,0.9f);
   float y=(float)h*0.15f;
   for(i=0;i<CODEXN;i++){
-    if(g_codex&(1u<<i)) draw_text_multi(60.0f,y,1.6f,g_codexTxt[i],0.6f,0.9f,1.0f,0.85f,-1);
+    if(g_codex&(1u<<i)){ diamond_fill(46.0f,y+5.0f,4.0f,0.5f,1.0f,0.9f,0.9f); /* 해금 마커 */
+      draw_text_multi(60.0f,y,1.6f,g_codexTxt[i],0.6f,1.0f,0.95f,0.92f,-1); }
     else { char line[20]; int n=0; const char*s="FRAG 0"; while(*s)line[n++]=*s++; line[n++]=(char)('1'+i);
       { const char*s2=": LOCKED"; while(*s2)line[n++]=*s2++; } line[n]=0;
       draw_text(60.0f,y,1.6f,line,0.4f,0.4f,0.5f,0.55f); }
@@ -2106,8 +2130,9 @@ static void render_ending(int w,int h){ /* 엔딩 화면 (§08 N3b) */
   if(g_ending==END_ROT){ r=1.0f; g=0.3f; b=0.3f; }
   else if(g_ending==END_MERGE){ r=0.7f; g=0.5f; b=1.0f; }
   else if(g_ending==END_ESCAPE){ r=0.5f; g=1.0f; b=0.8f; }
-  center_text(w,(float)h*0.13f,5.0f,g_endTitle[g_ending],r,g,b,0.95f);
-  if(g_endMsg) draw_text_multi((float)w*0.5f-280.0f,(float)h*0.33f,2.0f,g_endMsg,0.85f,0.92f,1.0f,0.85f,-1);
+  center_text(w,(float)h*0.15f,5.0f,g_endTitle[g_ending],r,g,b,0.95f);
+  draw_sigil((float)w*0.5f,(float)h*0.27f,24.0f,g_ending+1,r,g,b,0.8f); /* 엔딩별 시질 */
+  if(g_endMsg) draw_text_multi((float)w*0.5f-280.0f,(float)h*0.40f,2.0f,g_endMsg,0.85f,0.92f,1.0f,0.85f,-1);
   { float bl=0.5f+0.5f*f_sin(g_time*3.0f);
     center_text(w,(float)h*0.86f,1.8f,"R - DESCEND ANEW    ESC - TITLE",0.8f,0.8f,0.9f,0.4f+0.4f*bl); }
 }
@@ -2125,9 +2150,10 @@ static void render_title(int w,int h){
   center_text(w,cy-14.0f,8.2f,"NEON DESCENT",0.0f,0.9f,1.0f,0.25f); /* 글로우 */
   center_text(w,cy-16.0f,8.0f,"NEON DESCENT",0.55f,1.0f,1.0f,pul);
   center_text(w,cy+60.0f,2.4f,"PURGE THE MACHINE",1.0f,0.35f,0.7f,0.8f);
-  /* 페르소나 선택 (§08 N3) */
-  { int u=perso_unlocked(g_persona); float py=(float)h*0.47f;
-    center_text(w,py-22.0f,1.4f,"< A    PERSONA    D >",0.5f,0.7f,0.95f,0.5f);
+  /* 페르소나 선택 (§08 N3) — 고유 시질 + 셀렉터 */
+  { int u=perso_unlocked(g_persona); float py=(float)h*0.50f;
+    draw_sigil((float)w*0.5f,py-50.0f,15.0f,g_persona+1, u?0.6f:0.4f, u?1.0f:0.45f, u?0.95f:0.5f, u?0.85f:0.55f); /* §2 페르소나 엠블럼 */
+    center_text(w,py-22.0f,1.3f,"A - PREV    PERSONA    NEXT - D",0.5f,0.7f,0.95f,0.5f);
     center_text(w,py,3.4f,g_persoName[g_persona], u?0.6f:0.45f, u?1.0f:0.45f, u?0.95f:0.5f, u?0.95f:0.6f);
     center_text(w,py+34.0f,1.4f, u?g_persoDesc[g_persona]:"LOCKED - PROVE YOURSELF DEEPER", 0.6f,0.85f,1.0f, u?0.65f:0.45f); }
   float bl=0.5f+0.5f*f_sin(g_time*3.2f);

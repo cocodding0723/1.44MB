@@ -44,3 +44,17 @@
 | 적 WEAVER (type6) | v1 | ⏳대기 | 2026-06-13 | [new-enemies2.png](shots-B/new-enemies2.png) — 바이올렛 역회전 헥스 2겹 + 코어. 기뢰 설치. L6 해금 |
 | 보스 THE NEXUS (type2) | v1 | ⏳대기 | 2026-06-13 | [nexus-room1.png](shots-B/nexus-room1.png) — 테알 본체 + 3노드 + 회전 삼각 빔케이지. L9 순환 |
 | 모듈 6종 (UI 카드) | v1 | ⏳대기 | 2026-06-13 | 커먼: 보복/운동/광란/흡수, 레어: 글래스캐논/체인라이트닝. 모듈방 카드로 확인 |
+
+## N 서사 — 내러티브 UI 비주얼 (2026-06-14, N1~N3 교신·코덱스·페르소나·엔딩)
+
+> 실제 게임 렌더 스크린샷(rules/50 3순위 — 가장 정확). `docs/design/shots-narr/`. **사용자 컨펌 대기.**
+> 검토 기준: 네온/기계 미니멀 정체성, 720p 가독성, 영문 기계 교신체 톤 일관성.
+
+| 요소 | 버전 | 상태 | 날짜 | 메모 |
+|---|---|---|---|---|
+| 교신 오버레이 (ECHO 레이어 진입) | v2 | ⏳대기 | 2026-06-14 | [v2-comms.png](shots-narr/v2-comms.png) — **ECHO 점멸 삼각 시질(+노이즈 점) 추가, 패널 대비 0.62→0.80**. art-director HIGH(시질·대비) 반영 |
+| 코덱스 뷰어 (FRAGMENTS 열람) | v2 | ⏳대기 | 2026-06-14 | [v2-codex.png](shots-narr/v2-codex.png) — **해금 항목 다이아 마커 + 텍스트 강조(0.92α)**. art-director HIGH(해금 강조) 반영 |
+| 페르소나 셀렉터 | v2 | ⏳대기 | 2026-06-14 | [v2-persona.png](shots-narr/v2-persona.png) — **페르소나별 고유 시질(REVENANT 다이아+깨진링/DAEMON 가시/SENTINEL 육각방패/GHOST 이중링) + "A-PREV/NEXT-D" 명확화**. art-director HIGH(시질·UX) 반영 |
+| 엔딩 화면 | v2 | ⏳대기 | 2026-06-14 | 엔딩별 시질(타이틀 아래) + 색상 차별화(PURGE청/MERGE보라/ESCAPE테알/ROT적) + 타이틀 위치 하향. art-director MED 반영 |
+
+> **art-director 검토 후 보강(v2, 2026-06-14)**: HIGH "시질 부재"(설계 §2)를 `draw_sigil` 절차 엠블럼으로 전면 해소(교신 ECHO 삼각·페르소나 4종·엔딩 4종·코덱스 마커). 패널 대비·해금 강조·페르소나 UX·엔딩 위치/색 보완. 에셋 0 유지. 사용자 ✅ 승인 대기.

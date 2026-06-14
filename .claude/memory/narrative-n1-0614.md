@@ -51,7 +51,14 @@ metadata:
 ## 서사 N1~N3 완료 (origin/master)
 N1 교신 / N2 메타세이브 / N3a 페르소나 / N3b 엔딩 — 세피리아式 풀 루프(선택 캐릭터→하강 교신→해금 코덱스→부패도 메타→L12 최종보스→조건부 다중엔딩) 본편 DESCENT에 완성.
 
+## 비주얼 보강 v2 (2026-06-14, art-director 검토 반영)
+- art-director가 서사 4화면 검토 → HIGH "시질(캐릭터 도형 엠블럼) 부재"(설계 §2) 지목 → **`draw_sigil` 절차 헬퍼로 전면 해소**: 교신 ECHO 점멸삼각+노이즈, 페르소나 4종(REVENANT 다이아+깨진링/DAEMON 가시클러스터/SENTINEL 육각방패/GHOST 이중링), 엔딩 4종(타이틀 아래), 코덱스 해금 다이아 마커. 교신 패널 대비 0.62→0.80, 페르소나 UX "A-PREV/NEXT-D" 명확화. 에셋 0 유지. ~6% 캡.
+- CONFIRMATIONS.md N섹션 v2 갱신. 스크린샷 docs/design/shots-narr/v2-*.png.
+
+## OVERCLOCK SDD 보강 (2026-06-14, design-augmenter)
+- red-team 8갭을 docs/07 v0.3로 메움(§14.1~14.8): 고정시드 훅·acquire_target 동점·boss_spawn 추출+경계인자화·oc_draft(draw3 불가침)·sim정지 매트릭스·모드별 활성캡 분리·draw_enemy_batched 신규 명시·N1/N2가 이미 구현한 다줄텍스트+세이브 재활용 확인. 재활용 70%→**40%**, +8~14KB→**+15~25KB** 현실화. 게이트 "재검토 권장". **구현은 미착수**(설계만).
+
 ## 미해결
-- 무기 진화는 OVERCLOCK 의존(보류). OVERCLOCK 자체 red-team 게이트.
-- 보스/사망/엔딩 교신은 인게임 자연 도달 실측 미완(코드 경로는 검증됨).
-- 서사 비주얼(시질·교신 UI·엔딩) rules/50 ⏳.
+- OVERCLOCK 구현(O1 MVP): 고정시드훅→oc_draft→boss_spawn 리팩터 순. design-reviewer 재검토 1회 권장.
+- 서사 비주얼은 v2로 시질 갭 닫음 — 사용자 ✅ 승인 대기(⏳).
+- 무기 진화 OVERCLOCK 의존. 보스/엔딩 교신 인게임 자연도달 실측 미완(코드 검증됨).
