@@ -36,7 +36,12 @@ metadata:
 - **라운드트립 검증**: 임시 K디버그로 unlock→32B 파일(magic/ver/corruption/codex/crc 확인)→재실행 save_load→코덱스에 FRAG03 영속 표시 확인. 디버그 되돌림. 84,992B(캡 5.8%).
 - **교훈**: 디버그 키 추가 후 반드시 깨끗한 재빌드 확인(에러 스크립트 안 빌드는 미완료될 수 있음 — K가 안 먹던 원인). 세이브 파일 Remove-Item은 샌드박스 차단 → 덮어쓰기로 테스트.
 
+## N3a 페르소나 (2026-06-14, 검증 완료)
+- 4종: REVENANT(기본·항상해금) / DAEMON(글래스캐논 시작, 해금 bestLayer≥5) / SENTINEL(수호막 즉시, 해금 codex bit5 or bestLayer≥3) / GHOST(민첩2+냉각, 해금 corruption≥5).
+- **해금=세이브 스탯 파생**(신규 세이브 필드 0). 타이틀 A/D 순환 셀렉터, 미해금은 흐리게+"LOCKED", Space 시작은 perso_unlocked 게이트. new_run에서 페르소나별 g_mod 시작빌드 + 인트로 교신(g_persoIntro).
+- 검증: 타이틀 DAEMON 흐리게+LOCKED 표시 확인(bestLayer<5). 86,016B(캡 5.8%).
+
 ## 미해결
-- N3 페르소나/엔딩(REVENANT 외 DAEMON/SENTINEL/GHOST, 다중 엔딩). 무기 진화.
-- 보스/사망 교신은 코드 경로 동일(레이어 교신 검증됨)이나 인게임 실측 미완(보스 도달 어려움).
+- N3b 다중 엔딩(PURGE/MERGE/ESCAPE/ROT) — 본편이 엔드리스라 "승리/도달" 조건 설계 필요(예: 깊은 KERNEL 도달 or NEXUS 격파 시 코덱스/부패도 기반 엔딩). 무기 진화는 OVERCLOCK 의존(보류).
+- 보스/사망 교신은 코드 경로 동일(레이어 교신 검증됨)이나 인게임 실측 미완.
 - 서사 비주얼(시질·교신 UI) rules/50 ⏳.

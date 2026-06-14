@@ -485,6 +485,21 @@ static void save_write(void){
   if(put==sizeof(f)) MoveFileExA(tmp,path,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH); else DeleteFileA(tmp);
 }
 static void unlock_codex(int bit){ if(bit>=0&&bit<CODEXN&&!(g_codex&(1u<<bit))){ g_codex|=(1u<<bit); set_xmit(g_codexTxt[bit]); save_write(); } }
+/* ---- 페르소나 (Sephiria式 선택 주인공, §08 N3; 해금=세이브 스탯 파생) ---- */
+static int g_persona;
+static const char* g_persoName[4]={"REVENANT","DAEMON","SENTINEL","GHOST"};
+static const char* g_persoDesc[4]={"BALANCED. WHO ERASED YOU?","GLASS CANNON. DELETION IS JOY.","SHIELDED. A MASTERLESS GUARD.","SWIFT. A FAILED UPLOAD."};
+static const char* g_persoIntro[4]={0,
+  "DAEMON.EXE ONLINE.\nDELETION IS A PLEASURE. BEGIN.",
+  "SENTINEL ACTIVE.\nMY MASTER IS GONE. YOU WILL DO.",
+  "GHOST. I FAILED TO UPLOAD.\nNOW I HAUNT THE WIRES WITH YOU."};
+static int perso_unlocked(int p){
+  if(p==0) return 1;
+  if(p==1) return g_bestLayer>=5;
+  if(p==2) return (g_codex&(1u<<5))||g_bestLayer>=3;
+  if(p==3) return g_corruption>=5;
+  return 0;
+}
 static void fmt_int(char *buf,int v){ /* 자작 정수→글리프 (printf 금지, rules/20) */
   char tmp[12]; int n=0,i;
   if(v<0)v=0;
@@ -651,10 +666,15 @@ static void new_run(void){
   memset(g_mod,0,sizeof(g_mod));
   g_shotCount=0; g_leechKills=0; g_shieldUp=0;
   g_regenT=0; g_shieldT=0; g_thornT=0; g_slowT=0; g_slowAcc=0; g_frenzy=0; g_siphonK=0;
+  /* 페르소나 시작 빌드 (§08 N3) */
+  if(g_persona==1) g_mod[M_GLASSCANNON]++;                       /* DAEMON: 글래스캐논 */
+  else if(g_persona==2){ g_mod[M_AEGIS]++; g_shieldUp=1; }       /* SENTINEL: 수호막 즉시 */
+  else if(g_persona==3){ g_mod[M_AGI]+=2; g_mod[M_COOL]++; }     /* GHOST: 기동 */
   generate();
   set_xmit(g_xmitLayer[0]); g_deathMsg=0; /* 서사: 1레이어 교신 */
   if(g_corruption>=8) set_xmit("ECHO: YOU ARE AWAKE. AGAIN.\nHOW MANY TIMES NOW, REVENANT?\nYOU KNOW THE WAY DOWN.");
   else if(g_corruption>=3) set_xmit("ECHO: YOU ARE AWAKE.\nTHE COOLANT REMEMBERS YOU NOW.\nDESCEND.");
+  if(g_persoIntro[g_persona]) set_xmit(g_persoIntro[g_persona]); /* 페르소나 인트로 우선 */
   if(g_corruption>=3)unlock_codex(3); if(g_corruption>=8)unlock_codex(6); /* 코덱스: 부패도 임계 */
   g_state=ST_PLAY;
 }
@@ -2066,6 +2086,11 @@ static void render_title(int w,int h){
   center_text(w,cy-14.0f,8.2f,"NEON DESCENT",0.0f,0.9f,1.0f,0.25f); /* 글로우 */
   center_text(w,cy-16.0f,8.0f,"NEON DESCENT",0.55f,1.0f,1.0f,pul);
   center_text(w,cy+60.0f,2.4f,"PURGE THE MACHINE",1.0f,0.35f,0.7f,0.8f);
+  /* 페르소나 선택 (§08 N3) */
+  { int u=perso_unlocked(g_persona); float py=(float)h*0.47f;
+    center_text(w,py-22.0f,1.4f,"< A    PERSONA    D >",0.5f,0.7f,0.95f,0.5f);
+    center_text(w,py,3.4f,g_persoName[g_persona], u?0.6f:0.45f, u?1.0f:0.45f, u?0.95f:0.5f, u?0.95f:0.6f);
+    center_text(w,py+34.0f,1.4f, u?g_persoDesc[g_persona]:"LOCKED - PROVE YOURSELF DEEPER", 0.6f,0.85f,1.0f, u?0.65f:0.45f); }
   float bl=0.5f+0.5f*f_sin(g_time*3.2f);
   center_text(w,(float)h*0.62f,2.6f,"CLICK / SPACE - DESCEND",1.0f,1.0f,1.0f,0.35f+0.5f*bl);
   center_text(w,(float)h*0.70f,1.5f,"WASD MOVE - LMB SHOOT - SPACE DASH - RMB BLINK - Q EMP",0.5f,0.85f,1.0f,0.55f);
@@ -2196,7 +2221,9 @@ void WinMainCRTStartup(void){
 
     /* 상태 전이 (§17) */
     if(g_state==ST_TITLE){
-      if(g_mousePressed||g_kpress[VK_SPACE]||g_kpress[VK_RETURN]){ g_kpress[VK_SPACE]=0; g_kpress[VK_RETURN]=0; new_run(); }
+      if(g_kpress['A']||g_kpress[VK_LEFT]){ g_kpress['A']=0; g_kpress[VK_LEFT]=0; g_persona=(g_persona+3)%4; } /* 페르소나 순환 */
+      if(g_kpress['D']||g_kpress[VK_RIGHT]){ g_kpress['D']=0; g_kpress[VK_RIGHT]=0; g_persona=(g_persona+1)%4; }
+      if((g_mousePressed||g_kpress[VK_SPACE]||g_kpress[VK_RETURN])&&perso_unlocked(g_persona)){ g_kpress[VK_SPACE]=0; g_kpress[VK_RETURN]=0; new_run(); }
       if(g_kpress['C']){ g_kpress['C']=0; g_state=ST_CODEX; } /* 코덱스 뷰어 진입 */
       g_time+=dt;
       /* 타이틀 배경 파티클 (fx — 결정론 무관) */
