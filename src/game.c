@@ -7,6 +7,8 @@
 #include <gl/gl.h>
 #include <xmmintrin.h>
 
+/* 영상 녹화: cl /D ND_REC 빌드 시 glReadPixels 프레임 덤프(rec_frames.bin) 활성. 릴리스 빌드엔 미포함. */
+
 int _fltused = 0;
 
 #pragma function(memset)
@@ -123,11 +125,13 @@ static void snd_play(int id){
     v->jit=0.95f+(float)(v->rng&255)/255.0f*0.10f;
     return; }
 }
+static float bgm_sample(void); /* 절차 BGM (§16.4) — 정의는 게임 상태 전역 이후 */
 static void snd_fill(short *buf){
   int s,i;
   for(s=0;s<SND_SAMP;s++){
     float acc=0.0f;
     for(i=0;i<MAXVOICE;i++) if(g_voice[i].active) acc+=voice_sample(&g_voice[i]);
+    acc+=bgm_sample(); /* BGM 레이어 (§16.4) */
     if(!g_mute){ acc*=0.85f; if(acc>1.0f)acc=1.0f; if(acc<-1.0f)acc=-1.0f; } else acc=0.0f;
     buf[s]=(short)(acc*32767.0f);
   }
@@ -181,7 +185,7 @@ static void snd_update(void){
 #define EBUL_SPEED 280.0f
 #define MAXBUL 256
 #define MAXEBUL 256
-#define MAXENE 128
+#define MAXENE 256  /* 풀 상한(.bss, 파일크기 무관) — OVERCLOCK 256 호드 (docs/07 §14.6). DESCENT는 웨이브 캡상 실사용 ≤수십 */
 #define MAXPART 768
 #define MAXPICK 256
 #define MAXRING 32
@@ -284,7 +288,33 @@ typedef struct { unsigned char placed, type; int rx, ry, rw, rh, dist; } Cell;
 static Cell g_grid[GH][GW];
 static unsigned char g_conn[GH][GW], g_cleared[GH][GW], g_seen[GH][GW];
 static int g_downGX=SGX, g_downGY=SGY, g_depth=1, g_locked, g_lockGX, g_lockGY;
+/* 상점 (§13 스트레치): 비보스 레이어 35% 출현, 제단 3종(모듈/수리/리롤), E 구매 */
+static int g_shopGX=-1, g_shopGY=-1, g_shopPrice[3]; static unsigned char g_shopBought[3];
 static int pal_tier(void){ return (g_depth-1)%5; }
+/* ---- 절차 BGM (§16.4): 120BPM, 팰릿 티어 루트, 아르페지오(sine)+베이스(saw)+킥. 레이어 시드 변주 ---- */
+static int g_bgm=1, g_bgmIntense; static unsigned int g_bgmT; static float g_bgmArp, g_bgmBass, g_bgmKick;
+static const float g_semi[13]={1.0f,1.05946f,1.12246f,1.18921f,1.25992f,1.33484f,1.41421f,1.49831f,1.58740f,1.68179f,1.78180f,1.88775f,2.0f};
+static const int g_arpScale[6]={0,3,5,7,10,12}; /* 마이너 펜타토닉 + 옥타브 */
+static const float g_bgmRoot[5]={55.0f,49.0f,61.7f,43.7f,65.4f}; /* 티어별 루트(A1/G1/B1/F1/C2) */
+static float bgm_sample(void){
+  if(!g_bgm) return 0.0f;
+  if(!(g_state==ST_PLAY||g_state==ST_UPG||g_state==ST_PAUSE)) return 0.0f; /* 게임플레이 중만 */
+  unsigned int spb=g_bgmIntense?20045u:22050u, step8=spb/2u; /* 120BPM, 보스 P3 시 +10% 템포 (§16.4) */
+  unsigned int t=g_bgmT++;
+  float root=g_bgmRoot[pal_tier()]*(g_bgmIntense?1.03f:1.0f); /* P3 디튠 */
+  unsigned int eighth=t/step8, bar=eighth>>3, seed=g_master^(bar*2654435761u);
+  int idx=(int)((eighth+(seed>>5))%6u);
+  float af=root*2.0f*g_semi[g_arpScale[idx]];
+  g_bgmArp+=af/(float)SND_RATE; if(g_bgmArp>=1.0f)g_bgmArp-=1.0f;
+  float et=(float)(t%step8)/(float)SND_RATE, ae=et<0.005f?et/0.005f:(1.0f-(et-0.005f)/0.245f); if(ae<0.0f)ae=0.0f;
+  float arp=osc_sin(g_bgmArp)*0.10f*ae;
+  g_bgmBass+=root/(float)SND_RATE; if(g_bgmBass>=1.0f)g_bgmBass-=1.0f;
+  float bass=osc_saw(g_bgmBass)*0.06f;
+  unsigned int beat=t/spb, inbeat=t%spb; float kick=0.0f;
+  if((beat&1u)==0u){ float kt=(float)inbeat/(float)SND_RATE; /* 비트 1·3 킥 */
+    if(kt<0.1f){ float kf=120.0f-80.0f*(kt/0.1f); g_bgmKick+=kf/(float)SND_RATE; if(g_bgmKick>=1.0f)g_bgmKick-=1.0f; kick=osc_sin(g_bgmKick)*0.45f*(1.0f-kt/0.1f); } }
+  return (arp+bass+kick)*0.5f;
+}
 
 typedef struct { vec2 pos, vel; float radius; } Player;
 static Player g_player;
@@ -301,7 +331,8 @@ static float g_time; /* sim 누적 시간(비주얼 펄스용) */
 #define EMP_DMG 25.0f
 static float g_blinkCd, g_empCd;
 static int g_rmbPressed;
-static int g_wantDash, g_wantEmp; /* 입력 래치: 히트스톱/슬로모/고주사율 프레임에서 유실 방지 */
+static int g_wantDash, g_wantEmp, g_wantBuy; /* 입력 래치: 히트스톱/슬로모/고주사율 프레임에서 유실 방지 */
+static int g_mapZoom; /* 미니맵 Tab 확대 (§18 스트레치) */
 
 /* 점수/BITS (§13) */
 static int g_kills, g_bits, g_bossKills, g_bestScore, g_bestLayer;
@@ -339,6 +370,31 @@ typedef struct {
 } Boss;
 static Boss g_boss;
 static int g_bossDead; /* 현재 레이어 보스 처치 여부 */
+/* 보스 활동 경계+중심 (docs/07 §14.3 — 양 모드 공유, 셀 결합 제거) */
+static float g_bossMnx, g_bossMxx, g_bossMny, g_bossMxy, g_bossCx, g_bossCy;
+/* ===== OVERCLOCK MODE 전역 (docs/07 SDD v0.4 — O1 MVP) ===== */
+#define MODE_DESCENT 0
+#define MODE_OVERCLOCK 1
+#define W_PULSE 0
+#define W_ORBIT 1
+#define W_NOVA 2
+#define W_AURA 3
+#define W_SWARM 4
+#define W_BEAM 5
+#define W_ARC 6
+#define W_DRONE 7
+#define WEAPN 8
+#define WEAP_CAP 8
+static int g_mode;                 /* 0=DESCENT 1=OVERCLOCK */
+static int g_ocLevel, g_ocXP, g_ocXPneed, g_ocBossCount, g_upgCtx; /* g_upgCtx: 0=모듈 draw3 / 1=OC 드래프트 */
+static float g_ocT, g_ocSpawnT, g_ocBossT, g_orbAng, g_beamAng;
+static unsigned char g_weapLvl[WEAPN], g_weapEvo[WEAPN]; static float g_weapTimer[WEAPN];
+/* 무기 진화 (D-EVOLVE §4.4): 무기 max(8) + 짝 패시브 보유 → 진화 슈퍼무기 */
+static const int g_evoReq[WEAPN]={M_PIERCE,M_COOL,M_POWER,M_THORNS,M_MULTI,M_RAPID,M_CRIT,M_HOMING}; /* 무기별 고유 짝 (review #4) */
+static const char* g_weapName[WEAPN]={"PULSE","ORBITERS","NOVA","AURA","SWARM","BEAM","ARC","DRONES"};
+static const char* g_weapDesc[WEAPN]={"AUTO BOLTS +1","ORBIT BLADES","SEEKING BLAST","DAMAGE FIELD","KNIFE VOLLEY","SWEEP LASER","CHAIN BOLT","AUTO DRONES"};
+static float g_arenaX0, g_arenaY0, g_arenaX1, g_arenaY1;
+static int oc_score(void){ return (int)g_ocT*10 + g_kills*5 + g_ocLevel*200 + g_bossKills*1000; }
 typedef struct { vec2 pos; float life; unsigned char active; } TrailP;
 #define MAXTRAIL 96
 static TrailP g_trail[MAXTRAIL];
@@ -671,6 +727,17 @@ static void generate(void){
   g_grid[SGY][SGX].type=0;
   g_cleared[SGY][SGX]=1;  /* 시작방은 안전(클리어 취급) */
 
+  /* 상점방 배치 (§13): 비보스 레이어 35% — 전투방 1개를 상점(type 4)으로 대체 */
+  g_shopGX=-1; g_shopGY=-1;
+  if(!boss_layer() && (xrnd()%100)<35){
+    int sgx=-1, sgy=-1, cnt=0;
+    for(gy=0;gy<GH;gy++) for(gx=0;gx<GW;gx++) if(g_grid[gy][gx].placed && g_grid[gy][gx].type==1){
+      cnt++; if((int)(xrnd()%(unsigned)cnt)==0){ sgx=gx; sgy=gy; } } /* 저수지 추첨 */
+    if(sgx>=0){ g_grid[sgy][sgx].type=4; g_shopGX=sgx; g_shopGY=sgy; g_cleared[sgy][sgx]=1;
+      int base[3]={60,45,30}, q; float m=1.0f+0.1f*(float)(g_depth-1); /* 가격 레이어 비례 +10%/L */
+      for(q=0;q<3;q++){ g_shopPrice[q]=(int)((float)base[q]*m); g_shopBought[q]=0; } }
+  }
+
   /* 장애물 배치 (EXT-A, docs/06 §3): 기둥 1~3 + 크레이트 2~5, 시작방 제외 */
   for(gy=0;gy<GH;gy++) for(gx=0;gx<GW;gx++){
     Cell*c=&g_grid[gy][gx];
@@ -697,10 +764,34 @@ static void generate(void){
   g_player.pos.y=(g_grid[SGY][SGX].ry+g_grid[SGY][SGX].rh*0.5f)*TILEF;
   g_player.vel.x=0; g_player.vel.y=0; g_cam=g_player.pos;
 }
+/* ---- OVERCLOCK 아레나 생성 (docs/07 §3.2) — 단일 큰 방 + 기둥 엄폐물 ---- */
+static void oc_arena_init(void){
+  int x,y,p;
+  memset(g_tiles,0,sizeof(g_tiles)); memset(g_grid,0,sizeof(g_grid)); memset(g_conn,0,sizeof(g_conn));
+  memset(g_cleared,0,sizeof(g_cleared)); memset(g_seen,0,sizeof(g_seen));
+  memset(g_ene,0,sizeof(g_ene)); memset(g_bul,0,sizeof(g_bul)); memset(g_ebul,0,sizeof(g_ebul));
+  memset(g_part,0,sizeof(g_part)); memset(g_pick,0,sizeof(g_pick)); memset(g_ring,0,sizeof(g_ring));
+  memset(g_after,0,sizeof(g_after)); memset(g_boom,0,sizeof(g_boom)); memset(g_trail,0,sizeof(g_trail));
+  g_boss.active=0; g_bossDead=0; g_locked=0; g_fireCd=0.0f; g_shopGX=-1; g_shopGY=-1;
+  int aw=46, ah=32, ox=(MAPW-aw)/2, oy=(MAPH-ah)/2;
+  for(y=oy;y<oy+ah;y++) for(x=ox;x<ox+aw;x++) g_tiles[y][x]=1;
+  for(p=0;p<8;p++){ int px=ox+4+(int)(xrnd()%(unsigned)(aw-8)), py=oy+4+(int)(xrnd()%(unsigned)(ah-8));
+    if(px>ox+aw/2-3&&px<ox+aw/2+3&&py>oy+ah/2-3&&py<oy+ah/2+3) continue; /* 중앙 스폰 비움 */
+    g_tiles[py][px]=3; }
+  g_arenaX0=(float)ox*TILEF; g_arenaY0=(float)oy*TILEF; g_arenaX1=(float)(ox+aw)*TILEF; g_arenaY1=(float)(oy+ah)*TILEF;
+  g_player.pos.x=((float)ox+(float)aw*0.5f)*TILEF; g_player.pos.y=((float)oy+(float)ah*0.5f)*TILEF;
+  g_player.vel.x=0; g_player.vel.y=0; g_cam=g_player.pos;
+}
 static void descend(void){ g_depth++; g_rng=g_master^((unsigned)g_depth*2654435761u); if(!g_rng)g_rng=1; (void)xrnd(); (void)xrnd(); generate(); set_xmit(g_xmitLayer[narr_zone(g_depth)]);
   if(g_depth>=2)unlock_codex(0); if(g_depth>=4)unlock_codex(1); if(g_depth>=6)unlock_codex(4); if(g_depth>=9)unlock_codex(7); } /* 코덱스: 깊이 마일스톤 */
 static void new_run(void){
   LARGE_INTEGER li; QueryPerformanceCounter(&li); g_master=(unsigned int)li.QuadPart|1u;
+#ifdef ND_FIXED_SEED
+  g_master=(unsigned int)(ND_FIXED_SEED)|1u;                 /* CI/QA 결정론 빌드 (docs/07 §14.1) */
+#else
+  { char sb[16]; DWORD sl=GetEnvironmentVariableA("ND_SEED",sb,sizeof(sb)); /* 런타임 QA: set ND_SEED=12345 */
+    if(sl>0&&sl<16){ unsigned int v=0,i; for(i=0;i<sl;i++){ if(sb[i]<'0'||sb[i]>'9')break; v=v*10u+(unsigned)(sb[i]-'0'); } if(v) g_master=v|1u; } }
+#endif
   g_depth=1; g_rng=g_master^2654435761u; if(!g_rng)g_rng=1; (void)xrnd();
   g_pHP=g_pMaxHP=6.0f; g_pIfr=0; g_kills=0; g_bits=0; g_bossKills=0;
   g_dashT=0; g_dashCd=0; g_trauma=0; g_hitstop=0; g_hurtFx=0; g_clearFx=0; g_fringeFx=0; g_time=0;
@@ -708,10 +799,21 @@ static void new_run(void){
   memset(g_mod,0,sizeof(g_mod));
   g_shotCount=0; g_leechKills=0; g_shieldUp=0;
   g_regenT=0; g_shieldT=0; g_thornT=0; g_slowT=0; g_slowAcc=0; g_frenzy=0; g_siphonK=0;
+  g_upgCtx=0; g_bgmIntense=0; g_mapZoom=0; /* QA: 런 간 상태 누수 방지 (BGM 격화/미니맵 줌) */
   /* 페르소나 시작 빌드 (§08 N3) */
   if(g_persona==1) g_mod[M_GLASSCANNON]++;                       /* DAEMON: 글래스캐논 */
   else if(g_persona==2){ g_mod[M_AEGIS]++; g_shieldUp=1; }       /* SENTINEL: 수호막 즉시 */
   else if(g_persona==3){ g_mod[M_AGI]+=2; g_mod[M_COOL]++; }     /* GHOST: 기동 */
+  if(g_mode==MODE_OVERCLOCK){ /* OVERCLOCK: 아레나 + XP/레벨/호드 리셋 (docs/07 §3.1) */
+    int wi; for(wi=0;wi<WEAPN;wi++){ g_weapLvl[wi]=0; g_weapTimer[wi]=0.0f; g_weapEvo[wi]=0; }
+    g_weapLvl[W_PULSE]=1; g_orbAng=0.0f; g_beamAng=0.0f;
+    g_ocLevel=1; g_ocXP=0; g_ocXPneed=10; g_ocT=0.0f; g_ocSpawnT=2.0f; g_ocBossT=120.0f; g_ocBossCount=0;
+    g_deathMsg=0; g_finalBoss=0; /* 방어적 리셋 (review #2) */
+    oc_arena_init();
+    set_xmit("OVERCLOCK ENGAGED.\nHOLD THE LINE. THE MACHINE SWARMS.\nLEVEL UP. BURN THEM DOWN.");
+    g_state=ST_PLAY;
+    return;
+  }
   generate();
   set_xmit(g_xmitLayer[0]); g_deathMsg=0; /* 서사: 1레이어 교신 */
   if(g_corruption>=8) set_xmit("ECHO: YOU ARE AWAKE. AGAIN.\nHOW MANY TIMES NOW, REVENANT?\nYOU KNOW THE WAY DOWN.");
@@ -775,6 +877,13 @@ static void spawn_wave(int gx,int gy){
   }
 }
 
+static void shop_ped(int i,float*px,float*py){ /* 상점 제단 i(0~2)의 월드 좌표 */
+  Cell*c=&g_grid[g_shopGY][g_shopGX];
+  float fx[3]={0.3f,0.5f,0.7f};
+  *px=((float)c->rx+(float)c->rw*fx[i])*TILEF;
+  *py=((float)c->ry+(float)c->rh*0.5f)*TILEF;
+}
+
 static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l){
   switch(m){
     case WM_CLOSE: case WM_DESTROY: g_quit=1; PostQuitMessage(0); return 0;
@@ -790,6 +899,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l){
 
 static void apply_mod(int m){
   if(m<0||m>=MODN) return;
+  g_upgCtx=0; /* DESCENT 모듈 적용 → 컨텍스트 확정 (review #3) */
   g_mod[m]++;
   if(m==M_HEART){ g_pMaxHP+=2.0f; g_pHP=g_pMaxHP; }
   snd_play(SFX_PICKUP);
@@ -809,14 +919,19 @@ static void hurt_player(float dmg){
   snd_play(SFX_HURT);
   burst(g_player.pos.x,g_player.pos.y,10,200.0f,1.0f,0.25f,0.35f);
   if(g_pHP<=0.0f){ /* 사망 → 게임오버 (§17) */
-    int sc=score_now();
-    if(sc>g_bestScore){ g_bestScore=sc; }
-    if(g_depth>g_bestLayer) g_bestLayer=g_depth;
     g_hitstop=0.2f; add_trauma(0.8f);
     burst(g_player.pos.x,g_player.pos.y,32,320.0f,1.0f,0.9f,0.9f);
     spawn_ring(g_player.pos.x,g_player.pos.y,10.0f,420.0f,0.5f,1.0f,0.4f,0.5f);
-    { int d=g_depth; g_deathMsg=g_xmitDeath[d<=2?0:(d<=4?1:(d<=7?2:3))]; } /* 서사: 사망 에피타프 */
-    g_corruption++; save_write(); /* 메타: 부패도↑ + 영속 저장 */
+    if(g_mode==MODE_OVERCLOCK){ /* OVERCLOCK: 최고 생존시간 + OC 점수 (docs/07 §3.7) */
+      int t=(int)g_ocT; if(t>g_bestTime)g_bestTime=t;
+      int sc=oc_score(); if(sc>g_bestScore)g_bestScore=sc; g_deathMsg=0;
+    } else {
+      int sc=score_now(); if(sc>g_bestScore)g_bestScore=sc;
+      if(g_depth>g_bestLayer) g_bestLayer=g_depth;
+      { int d=g_depth; g_deathMsg=g_xmitDeath[d<=2?0:(d<=4?1:(d<=7?2:3))]; } /* 서사: 사망 에피타프 */
+      g_corruption++; /* 메타: 부패도↑ (DESCENT 전용) */
+    }
+    save_write();
     g_state=ST_OVER;
   }
 }
@@ -825,9 +940,23 @@ static void spawn_ebul(float x,float y,float ux,float uy,float spd,float life){
   int i; for(i=0;i<MAXEBUL;i++) if(!g_ebul[i].active){ Bullet*b=&g_ebul[i];
     b->active=1; b->pos.x=x; b->pos.y=y; b->vel.x=ux*spd; b->vel.y=uy*spd; b->life=life; return; }
 }
+/* 보스 경계/스폰 추출 (docs/07 §14.3) — DESCENT 셀·OVERCLOCK 아레나 양쪽에서 호출 */
+static void boss_setup_bounds(float mnx,float mxx,float mny,float mxy){
+  g_bossMnx=mnx; g_bossMxx=mxx; g_bossMny=mny; g_bossMxy=mxy;
+  g_bossCx=(mnx+mxx)*0.5f; g_bossCy=(mny+mxy)*0.5f;
+}
+static void boss_spawn(int type,int tier,float hpmul,float shrink0){
+  g_boss.active=1; g_boss.type=(unsigned char)type;
+  g_boss.maxhp=g_boss.hp=400.0f*(1.0f+0.5f*(float)(tier-1))*hpmul;
+  g_boss.phase=1; g_boss.flash=0; g_boss.dashState=0;
+  g_boss.pos.x=g_bossCx; g_boss.pos.y=g_bossCy;
+  g_boss.t1=0; g_boss.t2=0; g_boss.t3=0; g_boss.segAng=0; g_boss.trailT=0; g_boss.stateT=0;
+  g_boss.ldir.x=1; g_boss.ldir.y=0; g_boss.wdir.x=1; g_boss.wdir.y=0; g_boss.dashDir.x=1; g_boss.dashDir.y=0;
+  g_boss.shrink=shrink0;
+}
 static void boss_die(void){
   int i;
-  g_boss.active=0; g_bossDead=1; g_bossKills++;
+  g_boss.active=0; g_bossDead=1; g_bossKills++; g_bgmIntense=0;
   g_hitstop=0.2f; add_trauma(0.8f);
   burst(g_boss.pos.x,g_boss.pos.y,48,420.0f,1.0f,0.9f,0.9f);
   spawn_ring(g_boss.pos.x,g_boss.pos.y,20.0f,700.0f,0.5f,1.0f,1.0f,1.0f);
@@ -838,6 +967,11 @@ static void boss_die(void){
   for(i=0;i<MAXTRAIL;i++) g_trail[i].active=0;
   g_pHP+=2.0f; if(g_pHP>g_pMaxHP)g_pHP=g_pMaxHP; /* §9.3 보상 */
   unlock_codex(5); if(g_boss.type==1)unlock_codex(2); if(g_boss.type==2)unlock_codex(7); /* 코덱스: 보스 처치 */
+  if(g_mode==MODE_OVERCLOCK){ /* OVERCLOCK: XP 폭발 + 즉시 1레벨 보장 (docs/07 §3.4) */
+    int q; for(q=0;q<14;q++) spawn_pickup(g_boss.pos.x+rndsym()*40.0f,g_boss.pos.y+rndsym()*40.0f,2);
+    g_ocBossT=120.0f; g_ocXP+=g_ocXPneed;
+    return;
+  }
   if(g_finalBoss){ /* 최종 CORE 격파 → 엔딩 (§08 N3b) */
     if(g_depth>g_bestLayer)g_bestLayer=g_depth; { int sc=score_now(); if(sc>g_bestScore)g_bestScore=sc; }
     unlock_codex(7); g_finalBoss=0;
@@ -921,6 +1055,11 @@ static void kill_enemy(int idx){
   if(e->affix&4){ /* 폭발사망 (Volatile): 0.5s 지연 폭탄 */
     int q; for(q=0;q<MAXBOOM;q++) if(!g_boom[q].active){ g_boom[q].active=1; g_boom[q].pos=e->pos; g_boom[q].t=g_boom[q].t0=0.5f; break; }
   }
+  if(g_mode==MODE_OVERCLOCK){ /* OVERCLOCK: XP 조각 드롭 (BITS/흡혈/흡수 경제 미사용, docs/07 §3.4) */
+    int xc=(e->type==3)?3:((e->type==5||e->type==6)?2:1); if(e->affix)xc+=2;
+    int q; for(q=0;q<xc;q++) spawn_pickup(e->pos.x,e->pos.y,2);
+    return;
+  }
   int nb=1+(int)(xrnd()%3), b;
   if(e->affix){ nb*=3; /* 엘리트 BITS ×3 + 깊은 레이어 8% 모듈 오브 */
     if(g_depth>=5&&(xrnd()%100)<8) spawn_pickup(e->pos.x,e->pos.y,1);
@@ -969,14 +1108,14 @@ static void arc_chain(float x,float y,int skip,float dmg){ /* 체인라이트닝
 static void boss_update(float dt){
   if(!g_boss.active) return;
   Boss*B=&g_boss; int k;
-  Cell*c=&g_grid[g_downGY][g_downGX];
   float br=boss_radius();
-  float mnx=(c->rx+1)*TILEF+br, mxx=(c->rx+c->rw-1)*TILEF-br;
-  float mny=(c->ry+1)*TILEF+br, mxy=(c->ry+c->rh-1)*TILEF-br;
-  float rcx=(c->rx+c->rw*0.5f)*TILEF, rcy=(c->ry+c->rh*0.5f)*TILEF;
+  float mnx=g_bossMnx+br, mxx=g_bossMxx-br;
+  float mny=g_bossMny+br, mxy=g_bossMxy-br;
+  float rcx=g_bossCx, rcy=g_bossCy;
   if(B->flash>0.0f) B->flash-=dt;
   float hpr=B->hp/B->maxhp;
   int ph=hpr>0.66f?1:(hpr>0.33f?2:3);
+  g_bgmIntense=(ph==3); /* BGM P3 격화 (§16.4) */
   if(ph!=B->phase){ B->phase=ph; snd_play(SFX_PHASE); add_trauma(0.3f); B->flash=0.12f; g_fringeFx=0.5f;
     spawn_ring(B->pos.x,B->pos.y,br,500.0f,0.4f,1.0f,0.4f,0.4f);
     spawn_ring(B->pos.x,B->pos.y,br*0.4f,720.0f,0.5f,1.0f,1.0f,1.0f);
@@ -1084,12 +1223,224 @@ static void boss_update(float dt){
   /* 보스 본체 접촉뎀 2 */
   if(g_boss.active&&dist<br+g_player.radius) hurt_player(2.0f);
 }
-static void consume_latches(void){ g_wantDash=0; g_wantEmp=0; } /* sim 스텝 끝에서만 소거 */
+static void consume_latches(void){ g_wantDash=0; g_wantEmp=0; g_wantBuy=0; } /* sim 스텝 끝에서만 소거 */
 static void spawn_minib(float x,float y,float ux,float uy,float dmg){
   int i; for(i=0;i<MAXBUL;i++) if(!g_bul[i].active){ Bullet*b=&g_bul[i];
     b->active=1; b->pos.x=x; b->pos.y=y; b->vel.x=ux*500.0f; b->vel.y=uy*500.0f;
     b->life=0.5f; b->dmg=dmg; b->r=3.0f; b->pierce=0; b->bounce=0; b->mini=1; b->lastHit=0; return; }
 }
+
+/* ===================== OVERCLOCK MODE 시스템 (docs/07 O1 MVP) ===================== */
+/* 최근접 타게팅 (§14.2): strict < → 동거리 시 최저 인덱스 우선, 제곱거리 비교(f_sqrt 0회) */
+static int acquire_target(float ox,float oy,float maxR){
+  int best=-1,j; float bd2=maxR*maxR;
+  for(j=0;j<MAXENE;j++){ Enemy*e=&g_ene[j];
+    if(!e->active||e->spawn>0.0f) continue;
+    float dx=e->pos.x-ox, dy=e->pos.y-oy, d2=dx*dx+dy*dy;
+    if(d2<bd2){ bd2=d2; best=j; } }
+  return best;
+}
+/* 시간 게이팅 적 추첨 (§3.5): fodder 위주 → 점차 해금 */
+static int oc_pick_type(void){
+  int types[8], w[8], n=0, i, tot=0;
+  types[n]=0; w[n++]=10;            /* HUNTER */
+  types[n]=4; w[n++]=8;             /* SHARD = MITE fodder (§6) */
+  if(g_ocT>=60.0f){ types[n]=1; w[n++]=5; types[n]=2; w[n++]=5; types[n]=5; w[n++]=4; }
+  if(g_ocT>=180.0f){ types[n]=3; w[n++]=4; types[n]=6; w[n++]=4; }
+  for(i=0;i<n;i++) tot+=w[i];
+  int r=(int)(xrnd()%(unsigned)tot);
+  for(i=0;i<n;i++){ r-=w[i]; if(r<0) return types[i]; }
+  return 0;
+}
+static int oc_spawn_at_edge(int type){
+  int tr; for(tr=0;tr<30;tr++){
+    int side=(int)(xrnd()&3); float ex,ey, m=24.0f;
+    if(side==0){ ex=g_arenaX0+m+rnd01()*(g_arenaX1-g_arenaX0-2.0f*m); ey=g_arenaY0+m; }
+    else if(side==1){ ex=g_arenaX1-m; ey=g_arenaY0+m+rnd01()*(g_arenaY1-g_arenaY0-2.0f*m); }
+    else if(side==2){ ex=g_arenaX0+m+rnd01()*(g_arenaX1-g_arenaX0-2.0f*m); ey=g_arenaY1-m; }
+    else { ex=g_arenaX0+m; ey=g_arenaY0+m+rnd01()*(g_arenaY1-g_arenaY0-2.0f*m); }
+    float dx=ex-g_player.pos.x, dy=ey-g_player.pos.y;
+    if(dx*dx+dy*dy<150.0f*150.0f) continue;
+    if(is_wall_w(ex,ey)) continue;
+    return spawn_enemy(type,ex,ey,1);
+  }
+  return -1;
+}
+/* 호드 스포너 (§3.5): 시간 t로 밀도·HP·종류 스케일. g_depth를 시간 파생으로 두어 기존 스케일 재활용 */
+static void oc_horde_update(float dt){
+  int j;
+  g_ocT+=dt;
+  g_depth=1+(int)(g_ocT/25.0f); if(g_depth>12)g_depth=12; /* HP/속도/엘리트 스케일 구동 */
+  g_ocSpawnT-=dt;
+  if(g_ocSpawnT<=0.0f){
+    float interval=1.2f-g_ocT*0.004f; if(interval<0.15f)interval=0.15f;
+    g_ocSpawnT=interval;
+    int alive=0; for(j=0;j<MAXENE;j++) if(g_ene[j].active) alive++;
+    int cap=40+(int)(g_ocT*0.5f); if(cap>MAXENE-8)cap=MAXENE-8;
+    int batch=1+(int)(xrnd()%3), b;
+    for(b=0;b<batch;b++){ if(alive>=cap)break; oc_spawn_at_edge(oc_pick_type()); alive++; }
+  }
+}
+/* 자동 무기: ORBITERS(공전 블레이드) + NOVA(최근접 폭발). PULSE는 발사 블록에서 자동조준 */
+static void oc_weapons_update(float dt){
+  int j,k;
+  g_orbAng+=dt*2.4f;
+  if(g_weapLvl[W_ORBIT]){
+    int lv=g_weapLvl[W_ORBIT], evo=g_weapEvo[W_ORBIT], n=2+lv+(evo?2:0); float R=70.0f+10.0f*(float)lv+(evo?25.0f:0.0f), odm=(18.0f+8.0f*(float)lv)*(evo?1.6f:1.0f);
+    g_weapTimer[W_ORBIT]-=dt; int tick=g_weapTimer[W_ORBIT]<=0.0f; if(tick) g_weapTimer[W_ORBIT]=0.12f;
+    if(tick) for(k=0;k<n;k++){ float a=g_orbAng+(float)k*6.2831853f/(float)n;
+      float ox=g_player.pos.x+f_cos(a)*R, oy=g_player.pos.y+f_sin(a)*R;
+      for(j=0;j<MAXENE;j++){ if(!g_ene[j].active||g_ene[j].spawn>0.0f) continue; Enemy*e=&g_ene[j];
+        float dx=e->pos.x-ox, dy=e->pos.y-oy, rr=ene_radius(e->type)+10.0f;
+        if(dx*dx+dy*dy<rr*rr){ float d=f_sqrt(dx*dx+dy*dy); if(d<0.01f)d=0.01f;
+          e->hp-=odm; e->flash=0.06f; e->kvel.x+=dx/d*120.0f; e->kvel.y+=dy/d*120.0f;
+          if(e->hp<=0.0f) kill_enemy(j); } }
+      if(g_boss.active){ float bx=g_boss.pos.x-ox, by=g_boss.pos.y-oy, rr=boss_radius()+10.0f; if(bx*bx+by*by<rr*rr) boss_hit(odm); } }
+  }
+  if(g_weapLvl[W_NOVA]){
+    int lv=g_weapLvl[W_NOVA], evo=g_weapEvo[W_NOVA];
+    g_weapTimer[W_NOVA]-=dt;
+    if(g_weapTimer[W_NOVA]<=0.0f){
+      g_weapTimer[W_NOVA]=(2.5f-0.15f*(float)lv)*(evo?0.6f:1.0f); if(g_weapTimer[W_NOVA]<0.6f)g_weapTimer[W_NOVA]=0.6f;
+      int ti=acquire_target(g_player.pos.x,g_player.pos.y,700.0f);
+      if(ti>=0){ float nx=g_ene[ti].pos.x, ny=g_ene[ti].pos.y, R=(70.0f+12.0f*(float)lv)*(evo?1.4f:1.0f), dm=(40.0f+15.0f*(float)lv)*(evo?1.3f:1.0f);
+        for(j=0;j<MAXENE;j++){ if(!g_ene[j].active||g_ene[j].spawn>0.0f) continue; Enemy*e=&g_ene[j];
+          float dx=e->pos.x-nx, dy=e->pos.y-ny, rr=R+ene_radius(e->type);
+          if(dx*dx+dy*dy<rr*rr){ e->hp-=dm; e->flash=0.07f; if(e->hp<=0.0f) kill_enemy(j); } }
+        if(g_boss.active){ float bx=g_boss.pos.x-nx, by=g_boss.pos.y-ny, rr=R+boss_radius(); if(bx*bx+by*by<rr*rr) boss_hit(dm); }
+        burst(nx,ny,16,300.0f,1.0f,0.6f,0.2f); spawn_ring(nx,ny,10.0f,R*5.0f,0.25f,1.0f,0.55f,0.2f);
+        add_trauma(0.15f); snd_play(SFX_DEATH); }
+    }
+  }
+  if(g_weapLvl[W_AURA]){ /* AURA: 반경 R 지속 장판, 0.25s 틱뎀+소형 넉백 */
+    int lv=g_weapLvl[W_AURA], evo=g_weapEvo[W_AURA]; float R=(80.0f+18.0f*(float)lv)*(evo?1.3f:1.0f), dm=(8.0f+4.0f*(float)lv)*(evo?1.5f:1.0f);
+    g_weapTimer[W_AURA]-=dt;
+    if(g_weapTimer[W_AURA]<=0.0f){ g_weapTimer[W_AURA]=0.25f;
+      for(j=0;j<MAXENE;j++){ if(!g_ene[j].active||g_ene[j].spawn>0.0f) continue; Enemy*e=&g_ene[j];
+        float dx=e->pos.x-g_player.pos.x, dy=e->pos.y-g_player.pos.y, rr=R+ene_radius(e->type);
+        if(dx*dx+dy*dy<rr*rr){ float d=f_sqrt(dx*dx+dy*dy); if(d<0.01f)d=0.01f;
+          e->hp-=dm; e->flash=0.05f; e->kvel.x+=dx/d*60.0f; e->kvel.y+=dy/d*60.0f;
+          if(e->hp<=0.0f) kill_enemy(j); } }
+      if(g_boss.active){ float bx=g_boss.pos.x-g_player.pos.x, by=g_boss.pos.y-g_player.pos.y, rr=R+boss_radius(); if(bx*bx+by*by<rr*rr) boss_hit(dm); }
+    }
+  }
+  if(g_weapLvl[W_SWARM]){ /* SWARM: 최근접 N체에 조준 나이프 일제 발사 (spawn_minib 재활용) */
+    int lv=g_weapLvl[W_SWARM];
+    g_weapTimer[W_SWARM]-=dt;
+    if(g_weapTimer[W_SWARM]<=0.0f){ int evo=g_weapEvo[W_SWARM]; g_weapTimer[W_SWARM]=(1.4f-0.08f*(float)lv)*(evo?0.7f:1.0f); if(g_weapTimer[W_SWARM]<0.4f)g_weapTimer[W_SWARM]=0.4f;
+      int nk=2+lv+(evo?2:0), used[18], uc=0, q, fired=0;
+      for(q=0;q<nk;q++){
+        int bestj=-1; float bd2=600.0f*600.0f;
+        for(j=0;j<MAXENE;j++){ if(!g_ene[j].active||g_ene[j].spawn>0.0f) continue;
+          int skip=0,u; for(u=0;u<uc;u++) if(used[u]==j){ skip=1; break; } if(skip) continue;
+          float dx=g_ene[j].pos.x-g_player.pos.x, dy=g_ene[j].pos.y-g_player.pos.y, d2=dx*dx+dy*dy;
+          if(d2<bd2){ bd2=d2; bestj=j; } }
+        if(bestj<0) break;
+        if(uc<18) used[uc++]=bestj;
+        float dx=g_ene[bestj].pos.x-g_player.pos.x, dy=g_ene[bestj].pos.y-g_player.pos.y, l=f_sqrt(dx*dx+dy*dy); if(l<0.01f)l=1.0f;
+        spawn_minib(g_player.pos.x,g_player.pos.y,dx/l,dy/l,BUL_DMG*(0.6f+0.2f*(float)lv)); fired++;
+      }
+      if(fired) snd_play(SFX_SHOOT);
+    }
+  }
+  if(g_weapLvl[W_BEAM]){ /* BEAM: 회전 스윕 레이저 (draw_beam/beam_hit 재활용) */
+    int lv=g_weapLvl[W_BEAM], evo=g_weapEvo[W_BEAM], narm=1+lv/3+(evo?1:0), k; if(narm>4)narm=4;
+    float len=240.0f+30.0f*(float)lv+(evo?60.0f:0.0f), dm=(14.0f+5.0f*(float)lv)*(evo?1.4f:1.0f);
+    g_beamAng += (0.9f+0.05f*(float)lv)*dt;
+    g_weapTimer[W_BEAM]-=dt; int tick=g_weapTimer[W_BEAM]<=0.0f; if(tick) g_weapTimer[W_BEAM]=0.1f;
+    if(tick) for(k=0;k<narm;k++){ float a=g_beamAng+(float)k*6.2831853f/(float)narm, ux=f_cos(a), uy=f_sin(a);
+      for(j=0;j<MAXENE;j++){ if(!g_ene[j].active||g_ene[j].spawn>0.0f) continue; Enemy*e=&g_ene[j];
+        if(beam_hit(g_player.pos.x,g_player.pos.y,ux,uy,9.0f,e->pos.x,e->pos.y,ene_radius(e->type),len)){ e->hp-=dm; e->flash=0.05f; if(e->hp<=0.0f) kill_enemy(j); } }
+      if(g_boss.active && beam_hit(g_player.pos.x,g_player.pos.y,ux,uy,9.0f,g_boss.pos.x,g_boss.pos.y,boss_radius(),len)) boss_hit(dm); }
+  }
+  if(g_weapLvl[W_ARC]){ /* ARC: 주기적 체인 라이트닝 (arc_chain 패턴, 방문셋 추적) */
+    int lv=g_weapLvl[W_ARC];
+    g_weapTimer[W_ARC]-=dt;
+    if(g_weapTimer[W_ARC]<=0.0f){
+      g_weapTimer[W_ARC]=1.2f-0.07f*(float)lv; if(g_weapTimer[W_ARC]<0.4f)g_weapTimer[W_ARC]=0.4f;
+      int evo=g_weapEvo[W_ARC], hops=2+lv+(evo?2:0), vis[18], nv=0, hh; float cx=g_player.pos.x, cy=g_player.pos.y, dm=BUL_DMG*(0.5f+0.15f*(float)lv)*(evo?1.4f:1.0f);
+      for(hh=0;hh<hops;hh++){
+        int bestj=-1; float bd2=180.0f*180.0f;
+        for(j=0;j<MAXENE;j++){ if(!g_ene[j].active||g_ene[j].spawn>0.0f) continue; int s=0,u; for(u=0;u<nv;u++) if(vis[u]==j){s=1;break;} if(s)continue;
+          float dx=g_ene[j].pos.x-cx, dy=g_ene[j].pos.y-cy, d2=dx*dx+dy*dy; if(d2<bd2){ bd2=d2; bestj=j; } }
+        if(bestj<0) break;
+        if(nv<18) vis[nv++]=bestj;
+        Enemy*e=&g_ene[bestj]; e->hp-=dm; e->flash=0.06f;
+        spawn_ring(e->pos.x,e->pos.y,ene_radius(e->type)+4.0f,200.0f,0.16f,0.5f,0.9f,1.0f);
+        burst(e->pos.x,e->pos.y,4,160.0f,0.5f,0.9f,1.0f);
+        cx=e->pos.x; cy=e->pos.y;
+        if(e->hp<=0.0f) kill_enemy(bestj);
+      }
+      if(nv>0) snd_play(SFX_HIT);
+    }
+  }
+  if(g_weapLvl[W_DRONE]){ /* DRONES: 공전 자동사격 드론 (spawn_minib 재활용) */
+    int lv=g_weapLvl[W_DRONE], evo=g_weapEvo[W_DRONE], n=1+lv/2+(evo?1:0), k; if(n>5)n=5;
+    g_weapTimer[W_DRONE]-=dt;
+    if(g_weapTimer[W_DRONE]<=0.0f){
+      float cd=(0.5f-0.03f*(float)lv)*(evo?0.6f:1.0f); if(cd<0.15f)cd=0.15f; g_weapTimer[W_DRONE]=cd;
+      float R=46.0f;
+      for(k=0;k<n;k++){ float a=g_orbAng*0.7f+(float)k*6.2831853f/(float)n;
+        float dx2=g_player.pos.x+f_cos(a)*R, dy2=g_player.pos.y+f_sin(a)*R;
+        int ti=acquire_target(dx2,dy2,520.0f);
+        if(ti>=0){ float tx=g_ene[ti].pos.x-dx2, ty=g_ene[ti].pos.y-dy2, l=f_sqrt(tx*tx+ty*ty); if(l<0.01f)l=1.0f;
+          spawn_minib(dx2,dy2,tx/l,ty/l,BUL_DMG*(0.5f+0.15f*(float)lv)*(evo?1.3f:1.0f)); } }
+      snd_play(SFX_SHOOT);
+    }
+  }
+}
+/* 보스 웨이브 (§3.6): 2분마다 본편 보스 재활용, 아레나 중앙 스폰, 시간 HP 스케일 */
+static void oc_boss_waves(float dt){
+  if(g_boss.active) return;
+  g_ocBossT-=dt;
+  if(g_ocBossT<=0.0f){
+    g_ocBossT=120.0f; g_ocBossCount++;
+    int type=(g_ocBossCount-1)%3;
+    boss_setup_bounds(g_arenaX0+TILEF,g_arenaX1-TILEF,g_arenaY0+TILEF,g_arenaY1-TILEF);
+    float span=(g_arenaX1-g_arenaX0)>(g_arenaY1-g_arenaY0)?(g_arenaX1-g_arenaX0):(g_arenaY1-g_arenaY0); /* DESCENT와 동일: max(w,h) */
+    boss_spawn(type,g_ocBossCount,1.0f+0.3f*(float)(g_ocBossCount-1),0.5f*span);
+    set_xmit(g_xmitBoss[type]); snd_play(SFX_PHASE); add_trauma(0.4f);
+    /* 엘리트 웨이브 (§3.5): 보스와 함께 어픽스 엘리트 일괄 스폰 */
+    int ne=4+g_ocBossCount; if(ne>8)ne=8; int ew;
+    for(ew=0;ew<ne;ew++){ int ei=oc_spawn_at_edge(oc_pick_type());
+      if(ei>=0 && g_ene[ei].type!=4 && !g_ene[ei].affix){
+        int b1=(int)(xrnd()%5); g_ene[ei].affix=(unsigned char)(1<<b1);
+        if(g_ene[ei].affix&1) g_ene[ei].eshield=1;
+        g_ene[ei].hp*=1.15f; g_ene[ei].maxhp=g_ene[ei].hp; } }
+  }
+}
+/* 레벨업 드래프트 (§14.4): draw3 불가침, g_upgSel 인코딩 >=100 → 무기(id-100), 0..MOD_COMMON → 패시브 모듈 */
+static void oc_draft(void){
+  int k;
+  g_upgSel[0]=g_upgSel[1]=g_upgSel[2]=-1;
+  for(k=0;k<3;k++){
+    int cand[WEAPN+MOD_COMMON], nc=0, i, q, dup;
+    for(i=0;i<WEAPN;i++){ if(g_weapLvl[i]>=WEAP_CAP) continue; dup=0; for(q=0;q<k;q++) if(g_upgSel[q]==100+i) dup=1; if(!dup) cand[nc++]=100+i; }
+    for(i=0;i<MOD_COMMON;i++){ dup=0; for(q=0;q<k;q++) if(g_upgSel[q]==i) dup=1; if(!dup) cand[nc++]=i; }
+    if(nc<=0) continue;
+    g_upgSel[k]=cand[(int)(xrnd()%(unsigned)nc)];
+  }
+}
+static void oc_check_evo(void){ /* 진화 조건: 무기 max + 짝 패시브 보유 (§4.4) */
+  int w; for(w=0;w<WEAPN;w++)
+    if(!g_weapEvo[w] && g_weapLvl[w]>=WEAP_CAP && g_mod[g_evoReq[w]]>0){
+      g_weapEvo[w]=1; set_xmit("WEAPON EVOLVED.\nPOWER SURGES."); add_trauma(0.3f); }
+}
+static void oc_apply(int sel){
+  if(sel>=100){ int wid=sel-100; if(wid>=0&&wid<WEAPN&&g_weapLvl[wid]<WEAP_CAP) g_weapLvl[wid]++; }
+  else if(sel>=0&&sel<MOD_COMMON) g_mod[sel]++;
+  oc_check_evo();
+  snd_play(SFX_PICKUP);
+  g_state=ST_PLAY;
+}
+static void oc_level_check(void){
+  if(g_ocXP>=g_ocXPneed){
+    g_ocXP-=g_ocXPneed; g_ocLevel++;
+    g_ocXPneed=5+g_ocLevel*4+g_ocLevel*g_ocLevel;
+    oc_draft(); g_upgCtx=1; g_state=ST_UPG; snd_play(SFX_PHASE);
+  }
+}
+/* ================================================================================= */
 
 static void combat_update(float dt){
   int i,j;
@@ -1102,14 +1453,21 @@ static void combat_update(float dt){
     if(g_mouseDown){ float fmax=0.5f*(float)g_mod[M_FRENZY]; if(fmax>1.5f)fmax=1.5f; g_frenzy+=dt; if(g_frenzy>fmax)g_frenzy=fmax; }
     else { g_frenzy-=2.0f*dt; if(g_frenzy<0.0f)g_frenzy=0.0f; }
   } else g_frenzy=0.0f;
-  /* 발사 (LMB 홀드) — 모듈 수식(§6) + 총구 플래시 + 카메라 킥 */
-  if(g_mouseDown && g_fireCd<=0.0f){
-    g_fireCd=FIRE_INT/(1.0f+0.20f*(float)g_mod[M_RAPID]+g_frenzy);
-    float mwx=g_cam.x-g_winW*0.5f+(float)g_mouseX, mwy=g_cam.y-g_winH*0.5f+(float)g_mouseY;
+  /* 발사 (LMB 홀드 / OVERCLOCK 자동조준) — 모듈 수식(§6) + 총구 플래시 + 카메라 킥 */
+  int ocFire=0; float ocAx=0.0f, ocAy=0.0f;
+  if(g_mode==MODE_OVERCLOCK && !g_mouseDown){ int ti=acquire_target(g_player.pos.x,g_player.pos.y,900.0f);
+    if(ti>=0){ ocFire=1; ocAx=g_ene[ti].pos.x; ocAy=g_ene[ti].pos.y; } }
+  if((g_mouseDown||ocFire) && g_fireCd<=0.0f){
+    float plv=(g_mode==MODE_OVERCLOCK&&g_weapLvl[W_PULSE]>0)?(float)(g_weapLvl[W_PULSE]-1):0.0f; /* PULSE 레벨 = 연사/탄수 보너스 */
+    g_fireCd=FIRE_INT/(1.0f+0.20f*(float)g_mod[M_RAPID]+g_frenzy+0.18f*plv);
+    float mwx,mwy;
+    if(g_mouseDown){ mwx=g_cam.x-g_winW*0.5f+(float)g_mouseX; mwy=g_cam.y-g_winH*0.5f+(float)g_mouseY; }
+    else { mwx=ocAx; mwy=ocAy; }
     float dx=mwx-g_player.pos.x, dy=mwy-g_player.pos.y, l=f_sqrt(dx*dx+dy*dy); if(l<0.001f)l=1.0f;
     dx/=l; dy/=l;
     float bx=g_player.pos.x+dx*16.0f, by=g_player.pos.y+dy*16.0f;
     int nsh=1+(g_mod[M_MULTI]>6?6:g_mod[M_MULTI]), s;
+    if(g_mode==MODE_OVERCLOCK) nsh+=(int)((plv+1.0f)/2.0f); /* PULSE: lv2 +1탄, 2레벨당 +1 (QA: 정수나눗셈 0 버그 수정) */
     float spr=12.0f*(float)(nsh-1); if(spr>60.0f)spr=60.0f; spr*=0.0174533f;
     float bspd=BUL_SPEED*(1.0f+0.30f*(float)g_mod[M_SWIFT]), blife=BUL_LIFE*(1.0f+0.30f*(float)g_mod[M_SWIFT]);
     float critc=0.15f*(float)g_mod[M_CRIT]; if(critc>1.0f)critc=1.0f;
@@ -1130,6 +1488,7 @@ static void combat_update(float dt){
         b->active=1; b->pos.x=bx; b->pos.y=by; b->vel.x=ux*bspd; b->vel.y=uy*bspd;
         b->life=blife; b->dmg=dmg; b->r=rr;
         b->pierce=(unsigned char)(g_mod[M_PIERCE]>200?200:g_mod[M_PIERCE]);
+        if(g_mode==MODE_OVERCLOCK&&g_weapEvo[W_PULSE]) b->pierce=(unsigned char)(b->pierce+2); /* PULSE 진화: 관통+2 */
         b->bounce=(unsigned char)(g_mod[M_BOUNCE]*2>200?200:g_mod[M_BOUNCE]*2);
         b->mini=0; b->lastHit=0; break; }
     }
@@ -1401,6 +1760,7 @@ static void combat_update(float dt){
     p->t+=dt;
     float dx=g_player.pos.x-p->pos.x, dy=g_player.pos.y-p->pos.y, d2=dx*dx+dy*dy;
     float mag=p->homing?1e9f:70.0f*(1.0f+1.2f*(float)g_mod[M_MAGNET]);
+    if(g_mode==MODE_OVERCLOCK&&p->kind==2) mag*=2.4f; /* OC XP 흡인 강화 (방클리어 수거 없음 — 페이싱) */
     if(d2<mag*mag&&d2>1.0f){ float d=f_sqrt(d2); p->vel.x+=dx/d*1400.0f*dt; p->vel.y+=dy/d*1400.0f*dt; }
     p->vel.x-=p->vel.x*4.0f*dt; p->vel.y-=p->vel.y*4.0f*dt;
     p->pos.x+=p->vel.x*dt; p->pos.y+=p->vel.y*dt;
@@ -1412,6 +1772,10 @@ static void combat_update(float dt){
         if(m>=0){ g_mod[m]++;
           spawn_ring(g_player.pos.x,g_player.pos.y,12.0f,260.0f,0.35f,1.0f,0.4f,0.9f); }
         snd_play(SFX_PICKUP);
+      } else if(p->kind==2){ /* OVERCLOCK XP 조각 (docs/07 §3.4) */
+        g_ocXP+=2;
+        spawn_part(p->pos.x,p->pos.y,0,-60.0f,0.2f,3.0f,0.4f,1.0f,0.6f);
+        snd_play(SFX_COIN);
       } else {
         g_bits++;
         spawn_part(p->pos.x,p->pos.y,0,-60.0f,0.2f,3.0f,1.0f,0.95f,0.3f);
@@ -1443,7 +1807,11 @@ static void combat_update(float dt){
   if(g_fringeFx>0.0f){ g_fringeFx-=3.0f*dt; if(g_fringeFx<0.0f)g_fringeFx=0.0f; }
   if(g_clearFx>0.0f){ g_clearFx-=6.0f*dt; if(g_clearFx<0.0f)g_clearFx=0.0f; }
 
-  /* 전투방 잠금/전멸/개방 */
+  /* OVERCLOCK 시스템 (자동무기·호드·보스웨이브·레벨업) */
+  if(g_mode==MODE_OVERCLOCK){ oc_weapons_update(dt); oc_horde_update(dt); oc_boss_waves(dt); oc_level_check(); }
+
+  /* 전투방 잠금/전멸/개방 (DESCENT 전용 — 던전 방·다운링크 로직) */
+  if(g_mode==MODE_DESCENT){
   int ptx=(int)(g_player.pos.x/TILEF), pty=(int)(g_player.pos.y/TILEF), cgx=ptx/CELLT, cgy=pty/CELLT;
   if(cgx>=0&&cgy>=0&&cgx<GW&&cgy<GH&&g_grid[cgy][cgx].placed) g_seen[cgy][cgx]=1; /* 미니맵 탐험 기록 */
   if(!g_locked && cgx>=0&&cgy>=0&&cgx<GW&&cgy<GH && g_grid[cgy][cgx].placed){
@@ -1464,19 +1832,29 @@ static void combat_update(float dt){
     /* 보스방 진입 (§9): 보스 레이어의 다운링크방 → 보스 + 잠금 */
     if(boss_layer()&&!g_bossDead&&!g_boss.active&&cgx==g_downGX&&cgy==g_downGY
        &&ptx>=c->rx+1&&ptx<c->rx+c->rw-1&&pty>=c->ry+1&&pty<c->ry+c->rh-1){
-      int kk=g_depth/3;
-      g_boss.active=1; { int m3=(kk-1)%3; g_boss.type=(unsigned char)((m3==0)?0:(m3==1)?1:2); } /* CORE(d3)/WARDEN(d6)/NEXUS(d9) 순환 */
+      int kk=g_depth/3, m3=(kk-1)%3, btype=(m3==0)?0:(m3==1)?1:2; /* CORE(d3)/WARDEN(d6)/NEXUS(d9) 순환 */
       g_finalBoss=(g_depth>=12)?1:0; /* L12 KERNEL = 최종 CORE (§08 N3b) */
-      if(g_finalBoss){ g_boss.type=0; set_xmit("THE CORE: YOU REACHED ME.\nFEW DO. NONE LEAVE.\nLET US END THIS, REVENANT."); }
-      else set_xmit(g_xmitBoss[g_boss.type]); /* 서사: 보스 인트로 */
-      g_boss.maxhp=g_boss.hp=400.0f*(1.0f+0.5f*(float)(kk-1))*(g_finalBoss?1.4f:1.0f);
-      g_boss.phase=1; g_boss.flash=0; g_boss.dashState=0;
-      g_boss.pos.x=(c->rx+c->rw*0.5f)*TILEF; g_boss.pos.y=(c->ry+c->rh*0.5f)*TILEF;
-      g_boss.t1=0; g_boss.t2=0; g_boss.t3=0; g_boss.segAng=0; g_boss.trailT=0; g_boss.stateT=0;
-      g_boss.ldir.x=1; g_boss.ldir.y=0; g_boss.wdir.x=1; g_boss.wdir.y=0; g_boss.dashDir.x=1; g_boss.dashDir.y=0;
-      g_boss.shrink=0.5f*(float)(c->rw>c->rh?c->rw:c->rh)*TILEF;
+      if(g_finalBoss){ btype=0; set_xmit("THE CORE: YOU REACHED ME.\nFEW DO. NONE LEAVE.\nLET US END THIS, REVENANT."); }
+      else set_xmit(g_xmitBoss[btype]); /* 서사: 보스 인트로 */
+      boss_setup_bounds((float)(c->rx+1)*TILEF,(float)(c->rx+c->rw-1)*TILEF,(float)(c->ry+1)*TILEF,(float)(c->ry+c->rh-1)*TILEF);
+      boss_spawn(btype,kk,g_finalBoss?1.4f:1.0f,0.5f*(float)(c->rw>c->rh?c->rw:c->rh)*TILEF);
       g_locked=1; g_lockGX=cgx; g_lockGY=cgy;
       snd_play(SFX_PHASE); snd_play(SFX_DOORCLOSE); add_trauma(0.3f);
+    }
+  }
+  /* 상점 구매 (§13): 제단 근접 + E + BITS 충분 → 구매 */
+  if(g_shopGX>=0 && g_wantBuy){ g_wantBuy=0; int si;
+    for(si=0;si<3;si++){ if(g_shopBought[si]) continue;
+      float spx,spy; shop_ped(si,&spx,&spy);
+      float sdx=g_player.pos.x-spx, sdy=g_player.pos.y-spy;
+      if(sdx*sdx+sdy*sdy<45.0f*45.0f && g_bits>=g_shopPrice[si]){
+        g_bits-=g_shopPrice[si]; g_shopBought[si]=1;
+        spawn_ring(spx,spy,12.0f,300.0f,0.3f,1.0f,0.7f,0.3f); snd_play(SFX_PICKUP);
+        if(si==0){ draw3(0); g_upgRare=0; g_state=ST_UPG; }                 /* 모듈 3택1 */
+        else if(si==1){ g_pHP+=2.0f; if(g_pHP>g_pMaxHP)g_pHP=g_pMaxHP; }    /* 수리 1하트 */
+        else { int m=-1,tr; for(tr=0;tr<20;tr++){ int c2=(int)(xrnd()%MOD_COMMON); if(!mod_capped(c2)){ m=c2; break; } } if(m>=0) g_mod[m]++; } /* 리롤 랜덤 모듈 */
+        break;
+      }
     }
   }
   if(g_locked){ Cell*c=&g_grid[g_lockGY][g_lockGX];
@@ -1507,6 +1885,7 @@ static void combat_update(float dt){
     float ddx=g_player.pos.x-dcx, ddy=g_player.pos.y-dcy;
     if(ddx*ddx+ddy*ddy<2500.0f) descend();
   }
+  } /* end MODE_DESCENT room/descend gate */
 }
 
 static void camera_update(float rdt){
@@ -1674,8 +2053,90 @@ static void draw_enemy(Enemy*e){
   }
 }
 
+static void ene_color(int t,float*r,float*g,float*b){ /* draw_enemy 색 일치 */
+  if(t==0){*r=1.0f;*g=0.30f;*b=0.45f;}
+  else if(t==1){*r=0.30f;*g=0.75f;*b=1.0f;}
+  else if(t==2){*r=1.0f;*g=0.80f;*b=0.20f;}
+  else if(t==5){*r=1.0f;*g=0.45f;*b=0.55f;}
+  else if(t==6){*r=0.65f;*g=0.45f;*b=1.0f;}
+  else {*r=0.45f;*g=1.0f;*b=0.40f;}
+}
+/* OVERCLOCK 256적 배칭 렌더 (docs/07 §14.7, 컨펌 oc-batch-v1): 패스당 단일 glBegin, 적별 디테일 단순화 */
+static void draw_enemy_batched(void){
+  int j; float cr,cg,cb;
+  glBegin(GL_QUADS); /* (1) 글로우 1배치 */
+  for(j=0;j<MAXENE;j++){ Enemy*e=&g_ene[j]; if(!e->active||e->spawn>0.0f) continue;
+    float r=ene_radius(e->type)*1.5f, x=e->pos.x, y=e->pos.y; ene_color(e->type,&cr,&cg,&cb);
+    glColor4f(cr,cg,cb,0.20f); glVertex2f(x-r,y-r); glVertex2f(x+r,y-r); glVertex2f(x+r,y+r); glVertex2f(x-r,y+r); }
+  glEnd();
+  glBegin(GL_TRIANGLES); /* (2) 삼각 코어: 헌터/샤드/랜서 */
+  for(j=0;j<MAXENE;j++){ Enemy*e=&g_ene[j]; if(!e->active||e->spawn>0.0f) continue;
+    if(e->type!=0&&e->type!=4&&e->type!=5) continue;
+    float r=ene_radius(e->type), x=e->pos.x, y=e->pos.y;
+    if(e->flash>0.0f){cr=cg=cb=1.0f;} else ene_color(e->type,&cr,&cg,&cb); glColor3f(cr,cg,cb);
+    glVertex2f(x,y-r); glVertex2f(x+r*0.9f,y+r*0.7f); glVertex2f(x-r*0.9f,y+r*0.7f); }
+  glEnd();
+  glBegin(GL_QUADS); /* (3) 사각/다이아 코어: 터릿(사각)/리코셰·포크·위버(다이아) */
+  for(j=0;j<MAXENE;j++){ Enemy*e=&g_ene[j]; if(!e->active||e->spawn>0.0f) continue;
+    if(e->type==0||e->type==4||e->type==5) continue;
+    float r=ene_radius(e->type), x=e->pos.x, y=e->pos.y;
+    if(e->flash>0.0f){cr=cg=cb=1.0f;} else ene_color(e->type,&cr,&cg,&cb); glColor3f(cr,cg,cb);
+    if(e->type==1){ glVertex2f(x-r,y-r); glVertex2f(x+r,y-r); glVertex2f(x+r,y+r); glVertex2f(x-r,y+r); }
+    else { glVertex2f(x,y-r); glVertex2f(x+r,y); glVertex2f(x,y+r); glVertex2f(x-r,y); } }
+  glEnd();
+  for(j=0;j<MAXENE;j++){ Enemy*e=&g_ene[j]; if(!e->active) continue; /* (4) 엘리트/스폰 소수 개별 */
+    if(e->spawn>0.0f){ float r=ene_radius(e->type); ene_color(e->type,&cr,&cg,&cb); glColor4f(cr,cg,cb,0.7f);
+      circle_line(e->pos.x,e->pos.y,r+22.0f*(e->spawn/0.4f),12); }
+    else if(e->affix){ ene_color(e->type,&cr,&cg,&cb); glColor4f(cr,cg,cb,0.85f); circle_line(e->pos.x,e->pos.y,ene_radius(e->type)+5.0f,10);
+      if(e->eshield){ glColor4f(0.5f,0.95f,1.0f,0.6f); circle_line(e->pos.x,e->pos.y,ene_radius(e->type)+9.0f,10); } } }
+}
 static void hud_begin(int w,int h){
   glMatrixMode(GL_PROJECTION); glLoadIdentity(); glOrtho(0,w,h,0,-1,1); glMatrixMode(GL_MODELVIEW); glLoadIdentity();
+}
+/* ---- 공용 HUD 헬퍼 (DESCENT·OVERCLOCK 공유 — 중복 제거) ---- */
+static void draw_hearts(void){ /* 하트(1하트=2HP, 절반=1HP) */
+  int i; for(i=0;i<3;i++){
+    float bx=20.0f+i*30.0f, by=24.0f; int hp2=(int)g_pHP-i*2;
+    float cr=1.0f,cg=0.25f,cb=0.4f;
+    if(hp2>=2) diamond_fill(bx+9.0f,by,11.0f,cr,cg,cb,1.0f);
+    else if(hp2==1){ glColor4f(cr,cg,cb,1.0f); glBegin(GL_TRIANGLES); glVertex2f(bx+9.0f,by-11.0f); glVertex2f(bx+9.0f,by+11.0f); glVertex2f(bx-2.0f,by); glEnd();
+      glColor4f(0.25f,0.12f,0.16f,1.0f); glBegin(GL_TRIANGLES); glVertex2f(bx+9.0f,by-11.0f); glVertex2f(bx+20.0f,by); glVertex2f(bx+9.0f,by+11.0f); glEnd(); }
+    else diamond_fill(bx+9.0f,by,11.0f,0.25f,0.12f,0.16f,1.0f);
+  }
+}
+static void draw_hurt_vignette(int w,int h){ /* 피격 적색 비네트 (광과민 게이트) */
+  if(!(g_hurtFx>0.0f&&g_optFlash>0.0f)) return;
+  float a=g_hurtFx*0.4f*g_optFlash; float bw=(float)w*0.18f, bh=(float)h*0.22f;
+  glBegin(GL_QUADS);
+  glColor4f(1.0f,0.1f,0.15f,a); glVertex2f(0,0); glVertex2f((float)w,0);
+  glColor4f(1.0f,0.1f,0.15f,0.0f); glVertex2f((float)w,bh); glVertex2f(0,bh);
+  glColor4f(1.0f,0.1f,0.15f,0.0f); glVertex2f(0,(float)h-bh); glVertex2f((float)w,(float)h-bh);
+  glColor4f(1.0f,0.1f,0.15f,a); glVertex2f((float)w,(float)h); glVertex2f(0,(float)h);
+  glColor4f(1.0f,0.1f,0.15f,a); glVertex2f(0,0); glColor4f(1.0f,0.1f,0.15f,0.0f); glVertex2f(bw,0);
+  glVertex2f(bw,(float)h); glColor4f(1.0f,0.1f,0.15f,a); glVertex2f(0,(float)h);
+  glColor4f(1.0f,0.1f,0.15f,0.0f); glVertex2f((float)w-bw,0); glColor4f(1.0f,0.1f,0.15f,a); glVertex2f((float)w,0);
+  glVertex2f((float)w,(float)h); glColor4f(1.0f,0.1f,0.15f,0.0f); glVertex2f((float)w-bw,(float)h);
+  glEnd();
+}
+static void draw_comms_overlay(int w,int h){ /* 서사 교신 비차단 오버레이 (§08) */
+  (void)w;
+  if(!(g_xmitMsg && g_xmitT<6.5f)) return;
+  float a=1.0f; if(g_xmitT<0.3f)a=g_xmitT/0.3f; else if(g_xmitT>5.5f)a=6.5f-g_xmitT; if(a>1.0f)a=1.0f;
+  int cut=(int)(g_xmitT*30.0f); float by=(float)h-98.0f;
+  glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+  glColor4f(0.0f,0.02f,0.05f,0.80f*a);
+  glBegin(GL_QUADS); glVertex2f(26.0f,by-12.0f); glVertex2f(616.0f,by-12.0f); glVertex2f(616.0f,by+58.0f); glVertex2f(26.0f,by+58.0f); glEnd();
+  glColor4f(0.3f,0.9f,1.0f,0.22f*a);
+  glBegin(GL_QUADS); glVertex2f(26.0f,by-12.0f); glVertex2f(29.0f,by-12.0f); glVertex2f(29.0f,by+58.0f); glVertex2f(26.0f,by+58.0f); glEnd();
+  glBlendFunc(GL_SRC_ALPHA,GL_ONE);
+  draw_sigil(52.0f,by+22.0f,11.0f,0,0.3f,0.9f,1.0f,0.9f*a);
+  draw_text_multi(74.0f,by,2.0f,g_xmitMsg,0.55f,0.95f,1.0f,0.9f*a,cut);
+}
+static void draw_crosshair(void){ /* 커스텀 네온 십자선 (스크린 좌표) */
+  float mx=(float)g_mouseX, my=(float)g_mouseY;
+  glColor3f(1.0f,0.3f,0.6f); glBegin(GL_LINES);
+  glVertex2f(mx-9.0f,my); glVertex2f(mx-3.0f,my); glVertex2f(mx+3.0f,my); glVertex2f(mx+9.0f,my);
+  glVertex2f(mx,my-9.0f); glVertex2f(mx,my-3.0f); glVertex2f(mx,my+3.0f); glVertex2f(mx,my+9.0f); glEnd();
 }
 
 static void render_world(int w,int h){
@@ -1732,19 +2193,32 @@ static void render_world(int w,int h){
     glEnd();
   }
 
-  /* 다운링크 (펄스) — 보스층은 처치 후에만 출현 */
-  if(!boss_layer()||g_bossDead){
+  /* 다운링크/제단 (펄스) — DESCENT 전용 (OVERCLOCK 아레나엔 없음) */
+  if(g_mode==MODE_DESCENT&&(!boss_layer()||g_bossDead)){
     float dcx=(g_grid[g_downGY][g_downGX].rx+g_grid[g_downGY][g_downGX].rw*0.5f)*TILEF, dcy=(g_grid[g_downGY][g_downGX].ry+g_grid[g_downGY][g_downGX].rh*0.5f)*TILEF;
     float dpul=1.0f+0.15f*f_sin(g_time*4.0f);
     glColor3f(0.2f,1.0f,0.85f); diamond_line(dcx,dcy,26.0f*dpul); diamond_line(dcx,dcy,16.0f*dpul);
   }
-  { int gx,gy; for(gy=0;gy<GH;gy++) for(gx=0;gx<GW;gx++) if(g_grid[gy][gx].placed&&g_grid[gy][gx].type==2){
+  if(g_mode==MODE_DESCENT){ int gx,gy; for(gy=0;gy<GH;gy++) for(gx=0;gx<GW;gx++) if(g_grid[gy][gx].placed&&g_grid[gy][gx].type==2){
       float mx=(g_grid[gy][gx].rx+g_grid[gy][gx].rw*0.5f)*TILEF, my=(g_grid[gy][gx].ry+g_grid[gy][gx].rh*0.5f)*TILEF;
       if(!g_cleared[gy][gx]){ /* 미사용 제단: 펄스 */
         float ap=1.0f+0.12f*f_sin(g_time*5.0f);
         glColor3f(1.0f,0.3f,0.85f); diamond_line(mx,my,20.0f*ap); diamond_line(mx,my,11.0f*ap);
         diamond_fill(mx,my,6.0f,1.0f,0.4f,0.9f,0.5f+0.3f*f_sin(g_time*5.0f));
       } else { glColor4f(1.0f,0.3f,0.85f,0.25f); diamond_line(mx,my,20.0f); } } }
+  /* 상점 제단 3종 (§13) — 네온 다이아 + 이름/가격 월드 라벨 */
+  if(g_mode==MODE_DESCENT && g_shopGX>=0){
+    static const char* snm[3]={"MODULE","REPAIR","REROLL"};
+    int si; for(si=0;si<3;si++){ float spx,spy; shop_ped(si,&spx,&spy);
+      float cr=si==0?0.3f:1.0f, cg=si==0?0.9f:(si==1?0.3f:0.8f), cb=si==0?1.0f:(si==1?0.6f:0.2f);
+      if(g_shopBought[si]){ glColor4f(cr,cg,cb,0.2f); diamond_line(spx,spy,18.0f); }
+      else { float pl=1.0f+0.12f*f_sin(g_time*5.0f+(float)si);
+        glColor3f(cr,cg,cb); diamond_line(spx,spy,22.0f*pl); diamond_line(spx,spy,13.0f*pl);
+        diamond_fill(spx,spy,7.0f,cr,cg,cb,0.6f);
+        draw_text(spx-text_w(snm[si],6.0f)*0.5f,spy-62.0f,6.0f,snm[si],cr,cg,cb,0.9f);
+        { char pb[8]; fmt_int(pb,g_shopPrice[si]); draw_text(spx-text_w(pb,6.0f)*0.5f,spy-36.0f,6.0f,pb,1.0f,0.95f,0.3f,0.95f); } }
+    }
+  }
 
   /* 픽업 (BITS / 모듈 오브) */
   for(i=0;i<MAXPICK;i++){ if(!g_pick[i].active) continue; Pickup*p=&g_pick[i];
@@ -1753,6 +2227,9 @@ static void render_world(int w,int h){
       diamond_fill(p->pos.x,p->pos.y,12.0f,1.0f,0.3f,0.9f,0.3f);
       diamond_fill(p->pos.x,p->pos.y,7.0f,1.0f,0.5f,1.0f,pl);
       glColor4f(1.0f,0.4f,0.95f,0.8f); circle_line(p->pos.x,p->pos.y,14.0f+2.0f*f_sin(p->t*6.0f),12);
+    } else if(p->kind==2){ /* OVERCLOCK XP 조각 (틸 다이아) */
+      diamond_fill(p->pos.x,p->pos.y,8.0f,0.3f,1.0f,0.6f,0.3f);
+      diamond_fill(p->pos.x,p->pos.y,4.0f,0.6f,1.0f,0.8f,pl);
     } else {
       diamond_fill(p->pos.x,p->pos.y,7.0f,1.0f,0.95f,0.3f,0.25f);
       diamond_fill(p->pos.x,p->pos.y,4.0f,1.0f,0.95f,0.4f,pl);
@@ -1775,8 +2252,9 @@ static void render_world(int w,int h){
     diamond_fill(x,y,s,1.0f,0.6f,0.25f,1.0f);
   }
 
-  /* 적 */
-  for(i=0;i<MAXENE;i++) if(g_ene[i].active) draw_enemy(&g_ene[i]);
+  /* 적 — OVERCLOCK은 배칭 렌더(256적 60fps, §14.7), DESCENT는 다층 스프라이트 */
+  if(g_mode==MODE_OVERCLOCK) draw_enemy_batched();
+  else for(i=0;i<MAXENE;i++) if(g_ene[i].active) draw_enemy(&g_ene[i]);
 
   /* 워든 돌진 트레일 */
   for(i=0;i<MAXTRAIL;i++){ if(!g_trail[i].active) continue;
@@ -1858,8 +2336,7 @@ static void render_world(int w,int h){
         }
       }
       if(ph==3){ /* 압축 안전 반경 */
-        Cell*c2=&g_grid[g_downGY][g_downGX];
-        float rcx=(c2->rx+c2->rw*0.5f)*TILEF, rcy=(c2->ry+c2->rh*0.5f)*TILEF;
+        float rcx=g_bossCx, rcy=g_bossCy;
         glColor4f(1.0f,0.25f,0.15f,0.55f+0.25f*f_sin(g_time*7.0f));
         circle_line(rcx,rcy,B->shrink,32);
         glColor4f(1.0f,0.25f,0.15f,0.2f);
@@ -1940,20 +2417,31 @@ static void render_world(int w,int h){
   }
   if(g_shieldUp){ glColor4f(0.4f,0.9f,1.0f,0.5f+0.2f*f_sin(g_time*6.0f));
     circle_line(g_player.pos.x,g_player.pos.y,g_player.radius+10.0f,16); }
+  /* OVERCLOCK AURA 장판 시각화 (§4) */
+  if(g_mode==MODE_OVERCLOCK&&g_weapLvl[W_AURA]){ int lv=g_weapLvl[W_AURA]; float R=80.0f+18.0f*(float)lv;
+    circle_fill(g_player.pos.x,g_player.pos.y,R,28,0.6f,0.4f,1.0f,0.07f+0.03f*f_sin(g_time*4.0f));
+    glColor4f(0.7f,0.5f,1.0f,0.4f); circle_line(g_player.pos.x,g_player.pos.y,R,28); }
+  /* OVERCLOCK ORBITERS 무기 시각화 (§4) */
+  if(g_mode==MODE_OVERCLOCK&&g_weapLvl[W_ORBIT]){ int lv=g_weapLvl[W_ORBIT], n=2+lv, k2; float R=70.0f+10.0f*(float)lv;
+    glColor4f(0.4f,0.95f,1.0f,0.25f); circle_line(g_player.pos.x,g_player.pos.y,R,28);
+    for(k2=0;k2<n;k2++){ float a=g_orbAng+(float)k2*6.2831853f/(float)n;
+      float ox=g_player.pos.x+f_cos(a)*R, oy=g_player.pos.y+f_sin(a)*R;
+      diamond_fill(ox,oy,11.0f,0.4f,0.95f,1.0f,0.3f); diamond_fill(ox,oy,6.0f,0.7f,1.0f,1.0f,0.9f); } }
+  /* OVERCLOCK BEAM 스윕 레이저 시각화 */
+  if(g_mode==MODE_OVERCLOCK&&g_weapLvl[W_BEAM]){ int lv=g_weapLvl[W_BEAM], narm=1+lv/3+(g_weapEvo[W_BEAM]?1:0), k2; if(narm>4)narm=4; float len=240.0f+30.0f*(float)lv+(g_weapEvo[W_BEAM]?60.0f:0.0f);
+    for(k2=0;k2<narm;k2++){ float a=g_beamAng+(float)k2*6.2831853f/(float)narm, ux=f_cos(a), uy=f_sin(a);
+      draw_beam(g_player.pos.x,g_player.pos.y,ux,uy,len,9.0f,1.0f,0.3f,0.5f,0.22f);
+      draw_beam(g_player.pos.x,g_player.pos.y,ux,uy,len,4.0f,1.0f,0.7f,0.9f,0.85f); } }
+  /* OVERCLOCK DRONES 시각화 */
+  if(g_mode==MODE_OVERCLOCK&&g_weapLvl[W_DRONE]){ int lv=g_weapLvl[W_DRONE], n=1+lv/2+(g_weapEvo[W_DRONE]?1:0), k2; if(n>5)n=5; float R=46.0f;
+    for(k2=0;k2<n;k2++){ float a=g_orbAng*0.7f+(float)k2*6.2831853f/(float)n; float ox=g_player.pos.x+f_cos(a)*R, oy=g_player.pos.y+f_sin(a)*R;
+      diamond_fill(ox,oy,8.0f,1.0f,0.9f,0.4f,0.3f); diamond_fill(ox,oy,4.0f,1.0f,1.0f,0.7f,0.95f); } }
 }
 
 static void render_hud(int w,int h){
   int i;
   hud_begin(w,h);
-  /* 하트 (1하트=2HP, 절반=1HP) */
-  for(i=0;i<3;i++){
-    float bx=20.0f+i*30.0f, by=24.0f; int hp2=(int)g_pHP-i*2;
-    float cr=1.0f,cg=0.25f,cb=0.4f;
-    if(hp2>=2) diamond_fill(bx+9.0f,by,11.0f,cr,cg,cb,1.0f);
-    else if(hp2==1){ glColor4f(cr,cg,cb,1.0f); glBegin(GL_TRIANGLES); glVertex2f(bx+9.0f,by-11.0f); glVertex2f(bx+9.0f,by+11.0f); glVertex2f(bx-2.0f,by); glEnd();
-      glColor4f(0.25f,0.12f,0.16f,1.0f); glBegin(GL_TRIANGLES); glVertex2f(bx+9.0f,by-11.0f); glVertex2f(bx+20.0f,by); glVertex2f(bx+9.0f,by+11.0f); glEnd(); }
-    else diamond_fill(bx+9.0f,by,11.0f,0.25f,0.12f,0.16f,1.0f);
-  }
+  draw_hearts();
   draw_text(20.0f,44.0f,2.0f,"LAYER",0.4f,0.9f,1.0f,0.9f);
   draw_int(20.0f+text_w("LAYER ",2.0f)+6.0f,44.0f,2.0f,g_depth,1.0f,1.0f,1.0f,1.0f);
   /* 보스 HP 바 (상단 중앙) */
@@ -1993,10 +2481,11 @@ static void render_hud(int w,int h){
       draw_text(bx+gs*0.5f-4.5f,gy+gs*0.5f-7.5f,3.0f,k==0?"Q":"B",1.0f,1.0f,1.0f,pul+0.2f);
     }
   }
-  /* 미니맵 (§18 M6): 우상단, 셀 8px */
+  /* 미니맵 (§18 M6): 우상단, 셀 8px. Tab 확대(스트레치) → 2× */
   { int gx,gy, pt=pal_tier();
     int pgx=(int)(g_player.pos.x/TILEF)/CELLT, pgy=(int)(g_player.pos.y/TILEF)/CELLT;
-    float mx0=(float)w-20.0f-9.0f*10.0f, my0=72.0f;
+    float cs=g_mapZoom?16.0f:8.0f, step=g_mapZoom?20.0f:10.0f, ms=cs/8.0f;
+    float mx0=(float)w-20.0f-9.0f*step, my0=72.0f;
     for(gy=0;gy<GH;gy++) for(gx=0;gx<GW;gx++){
       if(!g_grid[gy][gx].placed) continue;
       int seen=g_seen[gy][gx];
@@ -2008,63 +2497,65 @@ static void render_hud(int w,int h){
         if(gx<GW-1&&g_seen[gy][gx+1]&&(g_conn[gy][gx+1]&8)) adj=1;
         if(!adj) continue;
       }
-      float bx=mx0+(float)gx*10.0f, by=my0+(float)gy*10.0f;
+      float bx=mx0+(float)gx*step, by=my0+(float)gy*step;
       if(seen){
         int cur=(gx==pgx&&gy==pgy);
         if(cur) glColor4f(1.0f,1.0f,1.0f,0.95f);
         else glColor4f(g_palAc[pt][0],g_palAc[pt][1],g_palAc[pt][2],0.4f);
-        glBegin(GL_QUADS); glVertex2f(bx,by); glVertex2f(bx+8.0f,by); glVertex2f(bx+8.0f,by+8.0f); glVertex2f(bx,by+8.0f); glEnd();
+        glBegin(GL_QUADS); glVertex2f(bx,by); glVertex2f(bx+cs,by); glVertex2f(bx+cs,by+cs); glVertex2f(bx,by+cs); glEnd();
       } else {
         glColor4f(g_palAc[pt][0],g_palAc[pt][1],g_palAc[pt][2],0.35f);
-        glBegin(GL_LINE_LOOP); glVertex2f(bx,by); glVertex2f(bx+8.0f,by); glVertex2f(bx+8.0f,by+8.0f); glVertex2f(bx,by+8.0f); glEnd();
+        glBegin(GL_LINE_LOOP); glVertex2f(bx,by); glVertex2f(bx+cs,by); glVertex2f(bx+cs,by+cs); glVertex2f(bx,by+cs); glEnd();
       }
-      if(seen){ /* 특수 마커 */
+      if(seen){ /* 특수 마커 (확대 시 ms 배율) */
         unsigned char rt=g_grid[gy][gx].type;
-        if(rt==2&&!g_cleared[gy][gx]) diamond_fill(bx+4.0f,by+4.0f,3.0f,1.0f,0.3f,0.85f,0.95f);
+        if(rt==2&&!g_cleared[gy][gx]) diamond_fill(bx+cs*0.5f,by+cs*0.5f,3.0f*ms,1.0f,0.3f,0.85f,0.95f);
         else if(rt==3){
           if(boss_layer()&&!g_bossDead){ glColor4f(1.0f,0.3f,0.3f,0.95f);
-            glBegin(GL_LINES); glVertex2f(bx+1.5f,by+1.5f); glVertex2f(bx+6.5f,by+6.5f); glVertex2f(bx+6.5f,by+1.5f); glVertex2f(bx+1.5f,by+6.5f); glEnd(); }
+            glBegin(GL_LINES); glVertex2f(bx+1.5f*ms,by+1.5f*ms); glVertex2f(bx+6.5f*ms,by+6.5f*ms); glVertex2f(bx+6.5f*ms,by+1.5f*ms); glVertex2f(bx+1.5f*ms,by+6.5f*ms); glEnd(); }
           else { glColor4f(0.2f,1.0f,0.85f,0.95f);
-            glBegin(GL_TRIANGLES); glVertex2f(bx+1.5f,by+2.0f); glVertex2f(bx+6.5f,by+2.0f); glVertex2f(bx+4.0f,by+6.5f); glEnd(); }
+            glBegin(GL_TRIANGLES); glVertex2f(bx+1.5f*ms,by+2.0f*ms); glVertex2f(bx+6.5f*ms,by+2.0f*ms); glVertex2f(bx+4.0f*ms,by+6.5f*ms); glEnd(); }
         }
+        else if(rt==4){ /* 상점 $ — 앰버 마커 (§18) */
+          glColor4f(1.0f,0.8f,0.2f,0.95f); diamond_fill(bx+cs*0.5f,by+cs*0.5f,3.0f*ms,1.0f,0.8f,0.2f,0.95f);
+          glBegin(GL_LINES); glVertex2f(bx+cs*0.5f,by+1.0f*ms); glVertex2f(bx+cs*0.5f,by+7.0f*ms); glEnd(); }
       }
     }
+    if(g_mapZoom) draw_text(mx0,my0-16.0f,1.4f,"MAP - TAB",g_palAc[pt][0],g_palAc[pt][1],g_palAc[pt][2],0.7f);
   }
-  /* 피격 적색 비네트 (화면 가장자리) */
-  if(g_hurtFx>0.0f&&g_optFlash>0.0f){ float a=g_hurtFx*0.4f*g_optFlash; float bw=(float)w*0.18f, bh=(float)h*0.22f;
-    glBegin(GL_QUADS);
-    glColor4f(1.0f,0.1f,0.15f,a); glVertex2f(0,0); glVertex2f((float)w,0);
-    glColor4f(1.0f,0.1f,0.15f,0.0f); glVertex2f((float)w,bh); glVertex2f(0,bh);
-    glColor4f(1.0f,0.1f,0.15f,0.0f); glVertex2f(0,(float)h-bh); glVertex2f((float)w,(float)h-bh);
-    glColor4f(1.0f,0.1f,0.15f,a); glVertex2f((float)w,(float)h); glVertex2f(0,(float)h);
-    glColor4f(1.0f,0.1f,0.15f,a); glVertex2f(0,0); glColor4f(1.0f,0.1f,0.15f,0.0f); glVertex2f(bw,0);
-    glVertex2f(bw,(float)h); glColor4f(1.0f,0.1f,0.15f,a); glVertex2f(0,(float)h);
-    glColor4f(1.0f,0.1f,0.15f,0.0f); glVertex2f((float)w-bw,0); glColor4f(1.0f,0.1f,0.15f,a); glVertex2f((float)w,0);
-    glVertex2f((float)w,(float)h); glColor4f(1.0f,0.1f,0.15f,0.0f); glVertex2f((float)w-bw,(float)h);
-    glEnd();
-  }
-  /* 방 클리어 정화 플래시 */
+  draw_hurt_vignette(w,h);
+  /* 방 클리어 정화 플래시 (DESCENT 전용) */
   if(g_clearFx>0.0f&&g_optFlash>0.0f){ glColor4f(0.5f,1.0f,0.95f,g_clearFx*0.22f*g_optFlash);
     glBegin(GL_QUADS); glVertex2f(0,0); glVertex2f((float)w,0); glVertex2f((float)w,(float)h); glVertex2f(0,(float)h); glEnd(); }
-  /* 서사 교신 오버레이 (§08, 비차단 — 레이어/보스 진입 시) */
-  if(g_xmitMsg && g_xmitT<6.5f){
-    float a=1.0f; if(g_xmitT<0.3f)a=g_xmitT/0.3f; else if(g_xmitT>5.5f)a=6.5f-g_xmitT; if(a>1.0f)a=1.0f;
-    int cut=(int)(g_xmitT*30.0f); float by=(float)h-98.0f;
-    glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-    glColor4f(0.0f,0.02f,0.05f,0.80f*a); /* 패널 대비 강화 (전투 중 판독) */
-    glBegin(GL_QUADS); glVertex2f(26.0f,by-12.0f); glVertex2f(616.0f,by-12.0f); glVertex2f(616.0f,by+58.0f); glVertex2f(26.0f,by+58.0f); glEnd();
-    glColor4f(0.3f,0.9f,1.0f,0.22f*a);
-    glBegin(GL_QUADS); glVertex2f(26.0f,by-12.0f); glVertex2f(29.0f,by-12.0f); glVertex2f(29.0f,by+58.0f); glVertex2f(26.0f,by+58.0f); glEnd();
-    glBlendFunc(GL_SRC_ALPHA,GL_ONE);
-    draw_sigil(52.0f,by+22.0f,11.0f,0,0.3f,0.9f,1.0f,0.9f*a); /* ECHO 점멸 삼각 시질 (§2) */
-    draw_text_multi(74.0f,by,2.0f,g_xmitMsg,0.55f,0.95f,1.0f,0.9f*a,cut);
-  }
-  /* 커스텀 네온 십자선 (스크린 좌표 — 셰이크 비적용) */
-  { float mx=(float)g_mouseX, my=(float)g_mouseY;
-    glColor3f(1.0f,0.3f,0.6f); glBegin(GL_LINES);
-    glVertex2f(mx-9.0f,my); glVertex2f(mx-3.0f,my); glVertex2f(mx+3.0f,my); glVertex2f(mx+9.0f,my);
-    glVertex2f(mx,my-9.0f); glVertex2f(mx,my-3.0f); glVertex2f(mx,my+3.0f); glVertex2f(mx,my+9.0f); glEnd();
-  }
+  draw_comms_overlay(w,h);
+  draw_crosshair();
+}
+
+/* OVERCLOCK 전용 HUD (docs/07 §7): XP 바 + LV + 타이머 + 킬, 공용 헬퍼 재사용 */
+static void oc_render_hud(int w,int h){
+  hud_begin(w,h);
+  draw_hearts();
+  /* XP 바 + LV */
+  { float bx=120.0f, by=16.0f, bw=(float)w-300.0f; float f=(float)g_ocXP/(float)(g_ocXPneed>0?g_ocXPneed:1); if(f>1.0f)f=1.0f;
+    glColor4f(0.05f,0.14f,0.09f,0.8f); glBegin(GL_QUADS); glVertex2f(bx,by); glVertex2f(bx+bw,by); glVertex2f(bx+bw,by+10.0f); glVertex2f(bx,by+10.0f); glEnd();
+    glColor4f(0.4f,1.0f,0.6f,0.9f); glBegin(GL_QUADS); glVertex2f(bx,by); glVertex2f(bx+bw*f,by); glVertex2f(bx+bw*f,by+10.0f); glVertex2f(bx,by+10.0f); glEnd();
+    glColor4f(0.5f,1.0f,0.7f,0.6f); glBegin(GL_LINE_LOOP); glVertex2f(bx,by); glVertex2f(bx+bw,by); glVertex2f(bx+bw,by+10.0f); glVertex2f(bx,by+10.0f); glEnd();
+    char lb[12]; lb[0]='L'; lb[1]='V'; lb[2]=' '; fmt_int(lb+3,g_ocLevel); draw_text(20.0f,46.0f,2.0f,lb,0.5f,1.0f,0.7f,0.95f); }
+  /* 타이머 mm:ss (우상) */
+  { int sec=(int)g_ocT, mm=sec/60, ss=sec%60; char tb[8]; int n=0;
+    tb[n++]=(char)('0'+(mm/10)%10); tb[n++]=(char)('0'+mm%10); tb[n++]=':'; tb[n++]=(char)('0'+ss/10); tb[n++]=(char)('0'+ss%10); tb[n]=0;
+    draw_text((float)w-text_w(tb,2.6f)-20.0f,18.0f,2.6f,tb,1.0f,1.0f,1.0f,0.95f); }
+  /* KILLS */
+  { char kb[16]; int n=0; const char*s="KILLS "; while(*s)kb[n++]=*s++; fmt_int(kb+n,g_kills);
+    draw_text((float)w-text_w(kb,1.6f)-20.0f,50.0f,1.6f,kb,0.6f,0.95f,1.0f,0.8f); }
+  /* 보스 HP 바 */
+  if(g_boss.active){ float bw=380.0f, bx=((float)w-bw)*0.5f, by=34.0f, fr2=g_boss.hp/g_boss.maxhp; if(fr2<0.0f)fr2=0.0f;
+    center_text(w,64.0f,1.4f,g_boss.type==0?"SUBCORE - THE CORE":(g_boss.type==2?"SUBCORE - THE NEXUS":"SUBCORE - THE WARDEN"),1.0f,0.4f,0.5f,0.9f);
+    glColor4f(0.15f,0.05f,0.1f,0.8f); glBegin(GL_QUADS); glVertex2f(bx,by); glVertex2f(bx+bw,by); glVertex2f(bx+bw,by+9.0f); glVertex2f(bx,by+9.0f); glEnd();
+    glColor4f(1.0f,0.3f,0.45f,0.95f); glBegin(GL_QUADS); glVertex2f(bx,by); glVertex2f(bx+bw*fr2,by); glVertex2f(bx+bw*fr2,by+9.0f); glVertex2f(bx,by+9.0f); glEnd(); }
+  draw_hurt_vignette(w,h);
+  draw_comms_overlay(w,h);
+  draw_crosshair();
 }
 
 static void dim_screen(int w,int h,float a){
@@ -2150,16 +2641,20 @@ static void render_title(int w,int h){
   center_text(w,cy-14.0f,8.2f,"NEON DESCENT",0.0f,0.9f,1.0f,0.25f); /* 글로우 */
   center_text(w,cy-16.0f,8.0f,"NEON DESCENT",0.55f,1.0f,1.0f,pul);
   center_text(w,cy+60.0f,2.4f,"PURGE THE MACHINE",1.0f,0.35f,0.7f,0.8f);
+  /* 모드 선택 (docs/07): DESCENT / OVERCLOCK */
+  center_text(w,cy+92.0f,2.2f, g_mode==MODE_OVERCLOCK?"MODE   OVERCLOCK":"MODE   DESCENT",
+    g_mode==MODE_OVERCLOCK?1.0f:0.35f, g_mode==MODE_OVERCLOCK?0.55f:0.95f, g_mode==MODE_OVERCLOCK?0.2f:1.0f, 0.9f);
+  center_text(w,cy+114.0f,1.3f,"TAB - SWITCH MODE",0.6f,0.8f,0.95f,0.5f);
   /* 페르소나 선택 (§08 N3) — 고유 시질 + 셀렉터 */
-  { int u=perso_unlocked(g_persona); float py=(float)h*0.50f;
+  { int u=perso_unlocked(g_persona); float py=(float)h*0.555f;
     draw_sigil((float)w*0.5f,py-50.0f,15.0f,g_persona+1, u?0.6f:0.4f, u?1.0f:0.45f, u?0.95f:0.5f, u?0.85f:0.55f); /* §2 페르소나 엠블럼 */
     center_text(w,py-22.0f,1.3f,"A - PREV    PERSONA    NEXT - D",0.5f,0.7f,0.95f,0.5f);
     center_text(w,py,3.4f,g_persoName[g_persona], u?0.6f:0.45f, u?1.0f:0.45f, u?0.95f:0.5f, u?0.95f:0.6f);
     center_text(w,py+34.0f,1.4f, u?g_persoDesc[g_persona]:"LOCKED - PROVE YOURSELF DEEPER", 0.6f,0.85f,1.0f, u?0.65f:0.45f); }
   float bl=0.5f+0.5f*f_sin(g_time*3.2f);
-  center_text(w,(float)h*0.62f,2.6f,"CLICK / SPACE - DESCEND",1.0f,1.0f,1.0f,0.35f+0.5f*bl);
+  center_text(w,(float)h*0.66f,2.6f, g_mode==MODE_OVERCLOCK?"CLICK / SPACE - OVERCLOCK":"CLICK / SPACE - DESCEND",1.0f,1.0f,1.0f,0.35f+0.5f*bl);
   center_text(w,(float)h*0.70f,1.5f,"WASD MOVE - LMB SHOOT - SPACE DASH - RMB BLINK - Q EMP",0.5f,0.85f,1.0f,0.55f);
-  center_text(w,(float)h*0.745f,1.3f,"GOAL: REACH AND PURGE THE CORE - LAYER 12",0.5f,0.7f,0.9f,0.45f);
+  center_text(w,(float)h*0.745f,1.3f, g_mode==MODE_OVERCLOCK?"GOAL: SURVIVE THE SWARM - AUTO-FIRE - LEVEL UP":"GOAL: REACH AND PURGE THE CORE - LAYER 12",0.5f,0.7f,0.9f,0.45f);
   if(g_bestScore>0){ char buf[12];
     float y=(float)h*0.78f;
     center_text(w,y,2.0f,"BEST",0.4f,0.9f,1.0f,0.7f);
@@ -2181,7 +2676,24 @@ static void render_gameover(int w,int h){
   hud_begin(w,h);
   dim_screen(w,h,0.68f);
   float cy=(float)h*0.22f;
-  center_text(w,cy,5.0f,"SIGNAL LOST",1.0f,0.3f,0.4f,0.95f);
+  center_text(w,cy,5.0f, g_mode==MODE_OVERCLOCK?"OVERCLOCK ENDS":"SIGNAL LOST",1.0f,0.3f,0.4f,0.95f);
+  if(g_mode==MODE_OVERCLOCK){ /* OVERCLOCK 정산: 생존시간·LV·킬·점수 (docs/07 §3.7) */
+    { int sec=(int)g_ocT, mm=sec/60, ss=sec%60; char line[28]; int n=0; const char*s="SURVIVED "; while(*s)line[n++]=*s++;
+      line[n++]=(char)('0'+(mm/10)%10); line[n++]=(char)('0'+mm%10); line[n++]=':'; line[n++]=(char)('0'+ss/10); line[n++]=(char)('0'+ss%10); line[n]=0;
+      center_text(w,cy+58.0f,2.4f,line,1.0f,1.0f,1.0f,0.85f); }
+    { float y=cy+110.0f; char buf[12]; char line[32]; int n;
+      n=0; { const char*s="LEVEL X200 : "; while(*s)line[n++]=*s++; } fmt_int(buf,g_ocLevel*200); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+      center_text(w,y,2.0f,line,0.5f,1.0f,0.7f,0.85f);
+      n=0; { const char*s="KILLS X5 : "; while(*s)line[n++]=*s++; } fmt_int(buf,g_kills*5); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+      center_text(w,y+26.0f,2.0f,line,0.6f,0.95f,1.0f,0.85f);
+      n=0; { const char*s="BOSS X1000 : "; while(*s)line[n++]=*s++; } fmt_int(buf,g_bossKills*1000); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+      center_text(w,y+52.0f,2.0f,line,1.0f,0.5f,0.8f,0.85f);
+      n=0; { const char*s="SCORE "; while(*s)line[n++]=*s++; } fmt_int(buf,oc_score()); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+      center_text(w,y+96.0f,3.2f,line,1.0f,1.0f,1.0f,1.0f);
+      n=0; { const char*s="( BEST "; while(*s)line[n++]=*s++; } fmt_int(buf,g_bestScore); { const char*p=buf; while(*p)line[n++]=*p++; } { const char*s2=" )"; while(*s2)line[n++]=*s2++; } line[n]=0;
+      center_text(w,y+132.0f,1.8f,line,0.6f,0.9f,1.0f,0.75f);
+    }
+  } else {
   { char buf[12]; char line[28]; int n=0; const char*s="LAYER "; while(*s)line[n++]=*s++;
     fmt_int(buf,g_depth); { const char*p=buf; while(*p)line[n++]=*p++; }
     { const char*s2=" REACHED"; while(*s2)line[n++]=*s2++; } line[n]=0;
@@ -2202,20 +2714,21 @@ static void render_gameover(int w,int h){
     n=0; { const char*s="( BEST "; while(*s)line[n++]=*s++; } fmt_int(buf,g_bestScore); { const char*p=buf; while(*p)line[n++]=*p++; } { const char*s2=" )"; while(*s2)line[n++]=*s2++; } line[n]=0;
     center_text(w,y+158.0f,1.8f,line,0.6f,0.9f,1.0f,0.75f); /* §18 목업 BEST 줄 */
   }
+  }
   float bl=0.5f+0.5f*f_sin(g_time*3.2f);
-  center_text(w,(float)h*0.82f,2.4f,"R - DESCEND AGAIN",1.0f,1.0f,1.0f,0.35f+0.5f*bl);
+  center_text(w,(float)h*0.82f,2.4f, g_mode==MODE_OVERCLOCK?"R - OVERCLOCK AGAIN":"R - DESCEND AGAIN",1.0f,1.0f,1.0f,0.35f+0.5f*bl);
   center_text(w,(float)h*0.82f+30.0f,1.6f,"ESC - TITLE",0.7f,0.7f,0.8f,0.6f);
 }
 
 static void render_pause(int w,int h){
   render_world(w,h);
-  render_hud(w,h);
+  if(g_mode==MODE_OVERCLOCK) oc_render_hud(w,h); else render_hud(w,h);
   hud_begin(w,h);
   dim_screen(w,h,0.55f);
   center_text(w,(float)h*0.38f,5.0f,"PAUSED",0.55f,1.0f,1.0f,0.95f);
   center_text(w,(float)h*0.55f,2.0f,"ESC RESUME - Q QUIT",1.0f,1.0f,1.0f,0.6f);
   /* 옵션 (§18 광과민 대응): S 셰이크 / F 플래시 / M 음소거 */
-  { char line[56]; int n=0; const char*s1="S SHAKE "; while(*s1)line[n++]=*s1++;
+  { char line[80]; int n=0; const char*s1="S SHAKE "; while(*s1)line[n++]=*s1++;
     { char b2[8]; fmt_int(b2,(int)(g_optShake*100.0f)); const char*p=b2; while(*p)line[n++]=*p++; }
     { const char*s2="  F FLASH "; while(*s2)line[n++]=*s2++; }
     { char b2[8]; fmt_int(b2,(int)(g_optFlash*100.0f)); const char*p=b2; while(*p)line[n++]=*p++; }
@@ -2223,8 +2736,22 @@ static void render_pause(int w,int h){
     { char b2[8]; fmt_int(b2,(int)(g_optCRT*100.0f)); const char*p=b2; while(*p)line[n++]=*p++; }
     { const char*s5="  M MUTE "; while(*s5)line[n++]=*s5++; }
     { const char*s4=g_mute?"ON":"OFF"; while(*s4)line[n++]=*s4++; }
+    { const char*s6="  B BGM "; while(*s6)line[n++]=*s6++; }
+    { const char*s7=g_bgm?"ON":"OFF"; while(*s7)line[n++]=*s7++; }
     line[n]=0;
     center_text(w,(float)h*0.63f,1.6f,line,0.6f,0.9f,1.0f,0.6f);
+  }
+  /* OVERCLOCK 빌드 요약 (docs/07 §7): 보유 무기/레벨·진화 */
+  if(g_mode==MODE_OVERCLOCK){
+    center_text(w,(float)h*0.72f,1.6f,"- ARSENAL -",0.5f,1.0f,0.7f,0.7f);
+    int wi, shown=0;
+    for(wi=0;wi<WEAPN;wi++){ if(!g_weapLvl[wi]) continue;
+      char line[40]; int n=0; const char*nm=g_weapName[wi]; while(*nm)line[n++]=*nm++; line[n++]=' ';
+      if(g_weapEvo[wi]){ const char*e="*EVO*"; while(*e)line[n++]=*e++; line[n]=0; }
+      else { line[n++]='L'; line[n++]='V'; line[n++]=' '; char nb[8]; fmt_int(nb,g_weapLvl[wi]); const char*p=nb; while(*p)line[n++]=*p++; line[n]=0; }
+      center_text(w,(float)h*0.75f+(float)shown*20.0f,1.4f,line, g_weapEvo[wi]?1.0f:0.5f,1.0f,g_weapEvo[wi]?0.4f:0.7f,0.85f);
+      shown++;
+    }
   }
 }
 
@@ -2233,7 +2760,7 @@ static void render_upgrade(int w,int h){
   render_world(w,h);
   hud_begin(w,h);
   dim_screen(w,h,0.6f);
-  center_text(w,(float)h*0.18f,3.4f,g_upgRare?"- RARE MODULE -":"- INSTALL MODULE -",1.0f,0.4f,0.9f,0.95f);
+  center_text(w,(float)h*0.18f,3.4f, g_upgCtx==1?"- LEVEL UP -":(g_upgRare?"- RARE MODULE -":"- INSTALL MODULE -"),1.0f,0.4f,0.9f,0.95f);
   float cw=240.0f, ch=150.0f, gap=30.0f;
   float x0=((float)w-(cw*3.0f+gap*2.0f))*0.5f, y0=(float)h*0.34f;
   for(k=0;k<3;k++){
@@ -2244,19 +2771,64 @@ static void render_upgrade(int w,int h){
     glColor4f(0.04f,0.07f,0.12f,0.92f);
     glBegin(GL_QUADS); glVertex2f(x,y0); glVertex2f(x+cw,y0); glVertex2f(x+cw,y0+ch); glVertex2f(x,y0+ch); glEnd();
     glBlendFunc(GL_SRC_ALPHA,GL_ONE);
-    if(g_upgRare) glColor4f(1.0f,0.75f,0.25f,hov?1.0f:0.55f);
+    if(g_upgCtx==1) glColor4f(0.4f,1.0f,0.6f,hov?1.0f:0.55f);
+    else if(g_upgRare) glColor4f(1.0f,0.75f,0.25f,hov?1.0f:0.55f);
     else glColor4f(0.3f,0.9f,1.0f,hov?1.0f:0.5f);
     glBegin(GL_LINE_LOOP); glVertex2f(x,y0); glVertex2f(x+cw,y0); glVertex2f(x+cw,y0+ch); glVertex2f(x,y0+ch); glEnd();
     if(m>=0){
       char num[2]; num[0]=(char)('1'+k); num[1]=0;
       draw_text(x+10.0f,y0+10.0f,2.0f,num,0.6f,0.95f,1.0f,0.8f);
-      draw_text(x+(cw-text_w(g_modName[m],2.0f))*0.5f,y0+52.0f,2.0f,g_modName[m],1.0f,1.0f,1.0f,1.0f);
-      draw_text(x+(cw-text_w(g_modDesc[m],1.4f))*0.5f,y0+92.0f,1.4f,g_modDesc[m],0.6f,0.95f,1.0f,0.85f);
-      if(g_mod[m]>0){ char sb[8]; sb[0]='L'; sb[1]='V'; sb[2]=' '; fmt_int(sb+3,g_mod[m]+1);
+      const char *nm, *ds; int lvl;
+      if(m>=100){ int wid=m-100; nm=g_weapName[wid]; ds=g_weapDesc[wid]; lvl=g_weapLvl[wid]; } /* OC 무기 카드 */
+      else { nm=g_modName[m]; ds=g_modDesc[m]; lvl=g_mod[m]; }
+      draw_text(x+(cw-text_w(nm,2.0f))*0.5f,y0+52.0f,2.0f,nm,1.0f,1.0f,1.0f,1.0f);
+      draw_text(x+(cw-text_w(ds,1.4f))*0.5f,y0+92.0f,1.4f,ds,0.6f,0.95f,1.0f,0.85f);
+      if(lvl>0){ char sb[10]; sb[0]='L'; sb[1]='V'; sb[2]=' '; fmt_int(sb+3,lvl+1);
         draw_text(x+(cw-text_w(sb,1.4f))*0.5f,y0+120.0f,1.4f,sb,1.0f,0.75f,0.3f,0.8f); }
     }
   }
   center_text(w,y0+ch+44.0f,1.8f,"CLICK OR 1 - 2 - 3",1.0f,1.0f,1.0f,0.5f);
+}
+
+#ifdef ND_REC
+/* 디버그 영상 덤프 (glReadPixels — 컴파일 게이트, 릴리스 빌드 무영향). cl /D ND_REC */
+#define REC_MAX 96
+static HANDLE g_recFile; static int g_recN; static unsigned char* g_recBuf; static unsigned char g_recLine[1920*3];
+static int g_recSkip;
+static void rec_frame(int w,int h){
+  if((g_recSkip++ %3)!=0) return; /* 3프레임당 1캡처 → 더 긴 플레이 구간 */
+  if(g_recN>=REC_MAX) return;
+  if(!g_recFile){
+    g_recFile=CreateFileA("rec_frames.bin",GENERIC_WRITE,0,0,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,0);
+    if(g_recFile==INVALID_HANDLE_VALUE){ g_recFile=0; return; }
+    g_recBuf=(unsigned char*)VirtualAlloc(0,(SIZE_T)w*h*3,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);
+    DWORD wr; unsigned int hdr[3]; hdr[0]=(unsigned)(w/2); hdr[1]=(unsigned)(h/2); hdr[2]=REC_MAX;
+    WriteFile(g_recFile,hdr,sizeof(hdr),&wr,0);
+  }
+  if(!g_recBuf) return;
+  glPixelStorei(GL_PACK_ALIGNMENT,1);
+  glReadPixels(0,0,w,h,GL_RGB,GL_UNSIGNED_BYTE,g_recBuf);
+  int dw=w/2, dh=h/2, x,y; DWORD wr;
+  for(y=0;y<dh;y++){ int sy=(dh-1-y)*2; /* glReadPixels는 bottom-up → 수직 반전 */
+    for(x=0;x<dw;x++){ unsigned char*p=&g_recBuf[((sy*w)+x*2)*3]; g_recLine[x*3]=p[0]; g_recLine[x*3+1]=p[1]; g_recLine[x*3+2]=p[2]; }
+    WriteFile(g_recFile,g_recLine,(DWORD)(dw*3),&wr,0);
+  }
+  g_recN++;
+  if(g_recN>=REC_MAX){ CloseHandle(g_recFile); g_recFile=0; }
+}
+#endif
+
+/* F11 전체화면 토글 (§18·§19) — 보더리스, GL 컨텍스트 재생성 없음(매 프레임 glViewport가 적응) */
+static void toggle_fullscreen(HWND hwnd){
+  static RECT saved; static int fs=0;
+  if(!fs){ GetWindowRect(hwnd,&saved);
+    SetWindowLongPtrA(hwnd,GWL_STYLE,(LONG_PTR)(WS_POPUP|WS_VISIBLE));
+    int sw=GetSystemMetrics(SM_CXSCREEN), sh=GetSystemMetrics(SM_CYSCREEN);
+    SetWindowPos(hwnd,HWND_TOP,0,0,sw,sh,SWP_FRAMECHANGED|SWP_SHOWWINDOW); fs=1;
+  } else {
+    SetWindowLongPtrA(hwnd,GWL_STYLE,(LONG_PTR)(WS_OVERLAPPEDWINDOW|WS_VISIBLE));
+    SetWindowPos(hwnd,HWND_TOP,saved.left,saved.top,saved.right-saved.left,saved.bottom-saved.top,SWP_FRAMECHANGED|SWP_SHOWWINDOW); fs=0;
+  }
 }
 
 void WinMainCRTStartup(void){
@@ -2270,6 +2842,10 @@ void WinMainCRTStartup(void){
   SetPixelFormat(dc,ChoosePixelFormat(dc,&pfd),&pfd);
   wglMakeCurrent(dc,wglCreateContext(dc));
   ShowCursor(FALSE);
+#ifdef ND_REC
+  /* 녹화: 창을 (0,0)로 이동 + 최상위 → GL 픽셀 오너십 보장(occlusion 시 glReadPixels undefined) */
+  SetWindowPos(hwnd,(HWND)-1,0,0,1280,720,0); SetForegroundWindow(hwnd);
+#endif
 
   LARGE_INTEGER li; QueryPerformanceCounter(&li); g_master=(unsigned int)li.QuadPart | 1u; g_rng=g_master; (void)xrnd(); g_rngFx=g_master^0x9E3779B9u; if(!g_rngFx)g_rngFx=0x12345678u;
   g_player.radius=14.0f; g_depth=1;
@@ -2285,10 +2861,13 @@ void WinMainCRTStartup(void){
     QueryPerformanceCounter(&now);
     float dt=(float)((double)(now.QuadPart-prev.QuadPart)/(double)freq.QuadPart); prev=now; if(dt>0.25f) dt=0.25f;
 
+    if(g_kpress[VK_F11]){ g_kpress[VK_F11]=0; toggle_fullscreen(hwnd); } /* 전체화면 토글 (§18·§19) */
+
     /* 상태 전이 (§17) */
     if(g_state==ST_TITLE){
       if(g_kpress['A']||g_kpress[VK_LEFT]){ g_kpress['A']=0; g_kpress[VK_LEFT]=0; g_persona=(g_persona+3)%4; } /* 페르소나 순환 */
       if(g_kpress['D']||g_kpress[VK_RIGHT]){ g_kpress['D']=0; g_kpress[VK_RIGHT]=0; g_persona=(g_persona+1)%4; }
+      if(g_kpress[VK_TAB]){ g_kpress[VK_TAB]=0; g_mode^=1; } /* 모드 전환 (DESCENT/OVERCLOCK) */
       if((g_mousePressed||g_kpress[VK_SPACE]||g_kpress[VK_RETURN])&&perso_unlocked(g_persona)){ g_kpress[VK_SPACE]=0; g_kpress[VK_RETURN]=0; new_run(); }
       if(g_kpress['C']){ g_kpress['C']=0; g_state=ST_CODEX; } /* 코덱스 뷰어 진입 */
       g_time+=dt;
@@ -2302,6 +2881,8 @@ void WinMainCRTStartup(void){
       if(g_kpress['M']){ g_kpress['M']=0; g_mute=!g_mute; }
       if(g_kpress[VK_SPACE]){ g_kpress[VK_SPACE]=0; g_wantDash=1; } /* 에지 → 래치 */
       if(g_kpress['Q']){ g_kpress['Q']=0; g_wantEmp=1; }
+      if(g_kpress['E']){ g_kpress['E']=0; g_wantBuy=1; } /* 상점 구매 (§13) */
+      if(g_kpress[VK_TAB]){ g_kpress[VK_TAB]=0; g_mapZoom=!g_mapZoom; } /* 미니맵 확대 (§18) */
       if(g_xmitMsg) g_xmitT+=dt; /* 서사 교신 타이머 (표시 전용) */
       acc+=dt;
       while(acc>=STEP){
@@ -2323,7 +2904,7 @@ void WinMainCRTStartup(void){
         int k; for(k=0;k<3;k++){ float x=x0+(float)k*(cw+gap);
           if((float)g_mouseX>=x&&(float)g_mouseX<=x+cw&&(float)g_mouseY>=y0&&(float)g_mouseY<=y0+ch) pick=k; }
       }
-      if(pick>=0&&g_upgSel[pick]>=0) apply_mod(g_upgSel[pick]);
+      if(pick>=0&&g_upgSel[pick]>=0){ if(g_upgCtx==1) oc_apply(g_upgSel[pick]); else apply_mod(g_upgSel[pick]); }
       g_time+=dt; acc=0.0f;
     } else if(g_state==ST_PAUSE){
       if(g_kpress[VK_ESCAPE]){ g_kpress[VK_ESCAPE]=0; g_state=ST_PLAY; }
@@ -2332,6 +2913,7 @@ void WinMainCRTStartup(void){
       if(g_kpress['F']){ g_kpress['F']=0; g_optFlash-=0.5f; if(g_optFlash<0.0f)g_optFlash=1.0f; }
       if(g_kpress['C']){ g_kpress['C']=0; g_optCRT-=0.5f; if(g_optCRT<0.0f)g_optCRT=1.0f; }
       if(g_kpress['M']){ g_kpress['M']=0; g_mute=!g_mute; }
+      if(g_kpress['B']){ g_kpress['B']=0; g_bgm=!g_bgm; } /* BGM 토글 (§16.4) */
       acc=0.0f;
     } else if(g_state==ST_CODEX){ /* 코덱스 뷰어 */
       if(g_kpress[VK_ESCAPE]||g_kpress['C']){ g_kpress[VK_ESCAPE]=0; g_kpress['C']=0; g_state=ST_TITLE; }
@@ -2353,12 +2935,15 @@ void WinMainCRTStartup(void){
     int w=rcl.right,h=rcl.bottom; if(w<1)w=1; if(h<1)h=1;
     g_winW=w; g_winH=h;
     if(g_state==ST_TITLE){ render_title(w,h); }
-    else if(g_state==ST_PLAY){ camera_update(dt); render_world(w,h); render_hud(w,h); render_post(w,h); }
+    else if(g_state==ST_PLAY){ camera_update(dt); render_world(w,h); if(g_mode==MODE_OVERCLOCK) oc_render_hud(w,h); else render_hud(w,h); render_post(w,h); }
     else if(g_state==ST_UPG){ render_upgrade(w,h); render_post(w,h); }
     else if(g_state==ST_PAUSE){ render_pause(w,h); render_post(w,h); }
     else if(g_state==ST_CODEX){ render_codex(w,h); }
     else if(g_state==ST_ENDING){ render_ending(w,h); }
     else { render_gameover(w,h); render_post(w,h); }
+#ifdef ND_REC
+    if(g_state==ST_PLAY) rec_frame(w,h);   /* SwapBuffers 전: 백버퍼에 렌더 결과 보존 (GL_BACK 읽기) */
+#endif
     SwapBuffers(dc);
     snd_update();
   }

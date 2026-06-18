@@ -725,6 +725,29 @@ M4~M6+확장 구현 코드의 다차원 적대적 리뷰에서 적발·수정한
 
 **용량**: v1.0 동결 시점 대비 +12.8KB → 78,336 bytes (하드캡 1.44MB의 5.3%). 절차생성·no-CRT 원칙 유지.
 
+### v1.4 — OVERCLOCK MODE O1 MVP (2026-06-18)
+docs/07 SDD의 VS/세피리아式 호드 생존 모드를 **별도 모드**로 구현(O1 MVP). 본편 DESCENT 동결 설계 보존 — `g_mode` 단일 분기 + `oc_` 접두사 격리.
+- **모드 분기**: 타이틀 `TAB`로 DESCENT/OVERCLOCK 전환. `new_run`이 `g_mode` 분기(아레나 vs 던전). `combat_update`는 OC 시스템 호출 후 DESCENT 방·다운링크 로직을 `g_mode==0` 게이트로 격리.
+- **아레나**(`oc_arena_init`): 46×32 단일 방 + 기둥 엄폐물. **호드 스포너**(`oc_horde_update`): 시간 t로 밀도·종류 게이팅, `g_depth`를 t파생으로 두어 기존 HP/속도/엘리트 스케일 재활용. 활성 캡 `40+t*0.5`(MAXENE-8 상한).
+- **자동사격**: PULSE는 발사 블록 자동조준(`acquire_target` §14.2 동점 타이브레이크). 신규 무기 7종 `oc_weapons_update`(전부 승인된 프리미티브 재활용): ORBITERS(공전 블레이드)·NOVA(최근접 폭발)·AURA(반경 장판 틱뎀)·SWARM(최근접 N체 조준 나이프)·BEAM(회전 스윕 레이저, `draw_beam`/`beam_hit`)·ARC(체인 라이트닝, 방문셋 추적)·DRONES(공전 자동사격 드론). 무기 캡 8 = SDD MAXWEAP 충족.
+- **XP/레벨/드래프트**: 처치 시 XP 조각(픽업 kind=2) 드롭→자력 흡인→임계(`5+lv*4+lv²`)→레벨업 드래프트(`oc_draft`/`oc_apply`/`oc_capped` — draw3 불가침 §14.4). 무기 레벨업 + 커먼 패시브 모듈 3택1.
+- **보스 웨이브**: 2분마다 본편 CORE/WARDEN/NEXUS 재활용(아레나 중앙 스폰). **`boss_spawn`/`boss_setup_bounds` 추출 + 경계 전역화(§14.3)** — 본편 보스 거동 수치 동일(회귀 0, 셀 산식 보존).
+- **HUD/엔딩**: `oc_render_hud`(XP바·LV·타이머·킬). 사망 시 OC 점수(`floor(t)*10+kills*5+lv*200+boss*1000`)·최고 생존시간(`g_bestTime`) 갱신, 부패도 미증가(DESCENT 전용).
+- **리팩터(중복 제거)**: 하트·피격 비네트·교신 오버레이·십자선을 공용 헬퍼(`draw_hearts`/`draw_hurt_vignette`/`draw_comms_overlay`/`draw_crosshair`)로 추출 → `render_hud`·`oc_render_hud` 공유.
+- **BGM (§16.4)**: 절차 합성 BGM을 믹서(`snd_fill`)에 추가 — 120BPM, 팰릿 티어 루트, 아르페지오(sine 플럭)+베이스(saw)+킥(비트 1·3), 레이어 시드 변주. 일시정지 `B` 토글, `M` 음소거 포함. 게임플레이 상태에서만 재생. 양 모드 공용.
+- **상점 (§13, DESCENT)**: ✅사용자 목업 승인(rules/50, `docs/design/shop-v1.png`) 후 구현. 비보스 레이어 35% 확률 전투방 1개를 상점방(type 4)으로 대체. 제단 3종 — 모듈(3택1) 60 / 수리(+1하트) 45 / 리롤(랜덤모듈) 30 BITS, 가격 +10%/L. 근접+`E` 구매, 구매 시 소진. 미니맵 `$` 앰버 마커. BITS=점수 자원이라 점수 vs 강함 트레이드오프 성립.
+- **무기 진화 D-EVOLVE (§4.4)**: 무기 max(lv8) + 짝 패시브 보유 시 자동 진화(`g_weapEvo`, `g_evoReq` 페어링: PULSE+PIERCE/ORBIT+COOL/NOVA+POWER/AURA+THORNS/SWARM+MULTI/BEAM+RAPID/ARC+CRIT/DRONE+RAPID). 진화 시 해당 무기 파라미터 대폭 강화(개수·반경·뎀·연사·관통) + 교신 알림. `oc_check_evo`가 드래프트 적용마다 검사. 승인 프리미티브 재활용(비주얼 게이트 무관).
+- **고정 시드 QA 훅 (§14.1)**: `cl /D ND_FIXED_SEED=N`(CI) + `set ND_SEED=N`(런타임) 2경로로 `g_master` 주입. 릴리스 빌드(미정의)는 QPC 그대로 → 동작 불변. 결정론 QA 재현(TC-OC-06) 가능.
+- **OC 엘리트 웨이브 (SDD §3.5)**: 보스 웨이브(120s)와 함께 어픽스 엘리트 4~8체 일괄 스폰(`oc_spawn_at_edge` 반환 인덱스로 affix 강제).
+- **BGM P3 격화 (§16.4)**: 보스 페이즈3 시 BGM 템포 +10% + 디튠(`g_bgmIntense` 플래그, boss_update 설정/boss_die 해제, bgm_sample 반영).
+- **미니맵 Tab 확대 (§18 스트레치)**: 플레이 중 `Tab`으로 미니맵 2× 확대 토글(`g_mapZoom`, 셀/마커 배율 파라미터화).
+- **F11 전체화면 (§18·§19)**: 보더리스 전체화면 토글(`toggle_fullscreen` — WS_POPUP↔WS_OVERLAPPEDWINDOW + 모니터 크기, GL 컨텍스트 재생성 없음, 매 프레임 glViewport가 적응).
+- **OC 256적 배칭 렌더 (§14.6/§14.7)**: ✅사용자 목업 승인(`docs/design/oc-batch-v1.png`) 후 구현. MAXENE 128→256(.bss, 파일크기 무관). `draw_enemy_batched`(OVERCLOCK 전용): 패스당 단일 glBegin(글로우 1 + 삼각코어 1 + 사각/다이아코어 1 + 엘리트/스폰 소수 개별) → 248적도 ~수십 드로우콜(기존 1,700+ 대비). 적별 회전/글로우다겹/배지 단순화. 본편 DESCENT는 `draw_enemy` 다층 스프라이트 유지(웨이브 캡상 256 미사용 → 동작 불변). OC 호드 캡 자동 상향(40+t*0.5, MAXENE-8=248).
+- **밸런스**: OC XP 픽업 자력 흡인 ×2.4(방 클리어 자동수거 없는 호드 모드 페이싱 — 플레이테스트로 발견).
+- **용량**: 89,600 → **110,080 bytes**(+20.5KB, 하드캡 1.44MB의 7.5%). 검증: code-reviewer-game CRIT/HIGH 0(MED/LOW 5건 수정), DESCENT 회귀, 8무기·상점·BGM·진화·시드·엘리트웨이브·미니맵Tab·F11·256배칭호드(45s 밀집) — 전부 무크래시.
+- **영상 녹화 인프라**: `#ifdef ND_REC` glReadPixels 프레임 덤프(릴리스 미포함) + `scripts/record-oc.ps1`·`assemble-rec.ps1`. ⚠️ 현 자동화 환경은 헤드리스라 GL 라이브 캡처 불가(PrintWindow/CopyFromScreen/glReadPixels 모두 픽셀 오너십으로 black/garbage). 실제 데스크톱에서만 녹화 가능. (자작 GIF-LZW 인코더는 비균일 프레임에서 미세 desync 잔존 — 실사용 시 ffmpeg 권장.)
+- **미착수(외부 의존만 남음)**: ① OC 밸런스·인텐시티 튜닝 — 플레이테스트 피드백 필요(헤드리스라 자체 검증 불가). ② OC 보스/엔딩 + 256배칭 60fps 인게임 실측 — 실세션 필요(코드/안정성만 검증). ③ 영상 — 헤드리스 GL 캡처 불가(녹화 인프라 제공). **설계 문서상 코드 구현 항목은 전부 완료.**
+
 ### v1.3a — QA 밸런스 패스 (2026-06-13)
 5차원 병렬 QA(밸런스·적·보스·버그·문서) 후 튜닝(CRIT 0; "5HP/틱" 류 발견은 `hurt_player` self-i-frame 가드로 무효 판정):
 - **NEXUS 밀도 완화**: 노드 방사링 노드당 12→8발·인터벌 2.8→3.6s, 본체 링 16→12발, ph3 수축 18→12px/s, 빔케이지 halfw 전 페이즈 7 고정(보이지 않는 폭증 제거), 터릿 소환 **최대 2 + 8s + 방 경계 클램프**, 노드링 사운드 SFX_PHASE(위협음).
