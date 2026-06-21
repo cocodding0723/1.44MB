@@ -385,12 +385,21 @@ static int is_wall_w(float wx, float wy){
   if(tx<0||ty<0||tx>=MAPW||ty>=MAPH) return 1;
   return T_SOLID(g_tiles[ty][tx]);
 }
-static float ene_radius(int t){
-  if(t==0) return 13.0f; if(t==1) return 14.0f; if(t==2) return 11.0f;
-  if(t==3) return 18.0f; if(t==5) return 12.0f; if(t==6) return 13.0f; return 8.0f;
-}
+/* 적 타입별 스탯 단일 테이블 (확장: 적 추가 = 한 줄). r=반경 spd=기본속도 hp=기본HP, cr/cg/cb=색
+ * 인덱스 = 적 타입(0헌터 1터릿 2리코셰 3포크 4샤드 5랜서 6위버). ene_radius/speed/color·spawn_enemy가 공유 */
+typedef struct { float r, spd, hp, cr, cg, cb; } EneStat;
+static const EneStat g_eneStat[7]={
+  {13.0f,130.0f,20.0f, 1.00f,0.30f,0.45f}, /* 0 HUNTER   핑크 */
+  {14.0f, 70.0f,16.0f, 0.30f,0.75f,1.00f}, /* 1 TURRET   시안 */
+  {11.0f,230.0f,12.0f, 1.00f,0.80f,0.20f}, /* 2 RICOCHET 앰버 */
+  {18.0f, 60.0f,30.0f, 0.45f,1.00f,0.40f}, /* 3 FORK     그린 */
+  { 8.0f,160.0f, 8.0f, 0.45f,1.00f,0.40f}, /* 4 SHARD    그린 */
+  {12.0f,110.0f,18.0f, 1.00f,0.45f,0.55f}, /* 5 LANCER   핫핑크 */
+  {13.0f, 95.0f,22.0f, 0.65f,0.45f,1.00f}, /* 6 WEAVER   바이올렛 */
+};
+static float ene_radius(int t){ return g_eneStat[t].r; }
 static float ene_speed(int t){
-  float s=t==0?130.0f:(t==1?70.0f:(t==2?230.0f:(t==3?60.0f:(t==5?110.0f:(t==6?95.0f:160.0f)))));
-  float sc=1.0f+0.04f*(float)(g_depth-1); if(sc>1.6f)sc=1.6f; return s*sc;
+  float sc=1.0f+0.04f*(float)(g_depth-1); if(sc>1.6f)sc=1.6f; return g_eneStat[t].spd*sc;
 }
+static void ene_color(int t,float*r,float*g,float*b){ *r=g_eneStat[t].cr; *g=g_eneStat[t].cg; *b=g_eneStat[t].cb; }
 

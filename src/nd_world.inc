@@ -191,13 +191,8 @@ static int spawn_enemy(int type,float x,float y,int allowElite){
     e->active=1; e->type=(unsigned char)type; e->pos.x=x; e->pos.y=y; e->vel.x=0; e->vel.y=0; e->kvel.x=0; e->kvel.y=0;
     e->t=0; e->t2=0; e->flash=0; e->spawn=0.4f; e->at=0; e->at2=0; e->affix=0; e->eshield=0;
     float hpsc=1.0f+0.18f*(float)(g_depth-1);
-    if(type==0) e->hp=20.0f*hpsc;
-    else if(type==1) e->hp=16.0f*hpsc;
-    else if(type==2){ e->hp=12.0f*hpsc; float dx=rndsym(), dy=rndsym(), l=f_sqrt(dx*dx+dy*dy); if(l<0.01f)l=1.0f; float sp=ene_speed(2); e->vel.x=dx/l*sp; e->vel.y=dy/l*sp; }
-    else if(type==3) e->hp=30.0f*hpsc;
-    else if(type==5) e->hp=18.0f*hpsc; /* LANCER */
-    else if(type==6) e->hp=22.0f*hpsc; /* WEAVER */
-    else e->hp=8.0f*hpsc;
+    e->hp=g_eneStat[type].hp*hpsc; /* HP 단일 출처(g_eneStat) */
+    if(type==2){ float dx=rndsym(), dy=rndsym(), l=f_sqrt(dx*dx+dy*dy); if(l<0.01f)l=1.0f; float sp=ene_speed(2); e->vel.x=dx/l*sp; e->vel.y=dy/l*sp; } /* 리코셰 초기 방향 */
     if(allowElite&&type!=4){ /* 엘리트 어픽스 (§8.5): min(0.25, 0.03*(d-1)) */
       float ep=0.03f*(float)(g_depth-1); if(ep>0.25f)ep=0.25f;
       if(rnd01()<ep){

@@ -42,6 +42,7 @@ static int g_mouseX, g_mouseY, g_mouseDown, g_mousePressed, g_quit, g_winW=1280,
 #include "nd_entity.inc"
 #include "nd_combat.inc"
 #include "nd_render.inc"
+#include "nd_screens.inc"
 #ifdef ND_REC
 /* 디버그 영상 덤프 (glReadPixels — 컴파일 게이트, 릴리스 빌드 무영향). cl /D ND_REC */
 #define REC_MAX 96
