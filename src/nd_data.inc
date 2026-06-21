@@ -353,10 +353,18 @@ static int g_mode;                 /* 0=DESCENT 1=OVERCLOCK */
 static int g_ocLevel, g_ocXP, g_ocXPneed, g_ocBossCount, g_upgCtx; /* g_upgCtx: 0=모듈 draw3 / 1=OC 드래프트 */
 static float g_ocT, g_ocSpawnT, g_ocBossT, g_orbAng, g_beamAng;
 static unsigned char g_weapLvl[WEAPN], g_weapEvo[WEAPN]; static float g_weapTimer[WEAPN];
-/* 무기 진화 (D-EVOLVE §4.4): 무기 max(8) + 짝 패시브 보유 → 진화 슈퍼무기 */
-static const int g_evoReq[WEAPN]={M_PIERCE,M_COOL,M_POWER,M_THORNS,M_MULTI,M_RAPID,M_CRIT,M_HOMING}; /* 무기별 고유 짝 (review #4) */
-static const char* g_weapName[WEAPN]={"PULSE","ORBITERS","NOVA","AURA","SWARM","BEAM","ARC","DRONES"};
-static const char* g_weapDesc[WEAPN]={"AUTO BOLTS +1","ORBIT BLADES","SEEKING BLAST","DAMAGE FIELD","KNIFE VOLLEY","SWEEP LASER","CHAIN BOLT","AUTO DRONES"};
+/* 무기 메타 단일 테이블 (확장: 무기 추가 = 한 줄). name/desc + evoReq(D-EVOLVE §4.4 짝 패시브). 인덱스=W_* */
+typedef struct { const char *name, *desc; int evoReq; } WeapMeta;
+static const WeapMeta g_weapMeta[WEAPN]={
+  {"PULSE",    "AUTO BOLTS +1", M_PIERCE}, /* W_PULSE */
+  {"ORBITERS", "ORBIT BLADES",  M_COOL},   /* W_ORBIT */
+  {"NOVA",     "SEEKING BLAST", M_POWER},  /* W_NOVA  */
+  {"AURA",     "DAMAGE FIELD",  M_THORNS}, /* W_AURA  */
+  {"SWARM",    "KNIFE VOLLEY",  M_MULTI},  /* W_SWARM */
+  {"BEAM",     "SWEEP LASER",   M_RAPID},  /* W_BEAM  */
+  {"ARC",      "CHAIN BOLT",    M_CRIT},   /* W_ARC   */
+  {"DRONES",   "AUTO DRONES",   M_HOMING}, /* W_DRONE */
+};
 static float g_arenaX0, g_arenaY0, g_arenaX1, g_arenaY1;
 static int oc_score(void){ return (int)g_ocT*10 + g_kills*5 + g_ocLevel*200 + g_bossKills*1000; }
 typedef struct { vec2 pos; float life; unsigned char active; } TrailP;

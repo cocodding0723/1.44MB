@@ -480,7 +480,7 @@ static void oc_draft(void){
 }
 static void oc_check_evo(void){ /* 진화 조건: 무기 max + 짝 패시브 보유 (§4.4) */
   int w; for(w=0;w<WEAPN;w++)
-    if(!g_weapEvo[w] && g_weapLvl[w]>=WEAP_CAP && g_mod[g_evoReq[w]]>0){
+    if(!g_weapEvo[w] && g_weapLvl[w]>=WEAP_CAP && g_mod[g_weapMeta[w].evoReq]>0){
       g_weapEvo[w]=1; set_xmit("WEAPON EVOLVED.\nPOWER SURGES."); add_trauma(0.3f); }
 }
 static void oc_apply(int sel){

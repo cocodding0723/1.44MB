@@ -306,7 +306,7 @@ static void render_pause(int w,int h){
     center_text(w,(float)h*0.72f,1.6f,"- ARSENAL -",0.5f,1.0f,0.7f,0.7f);
     int wi, shown=0;
     for(wi=0;wi<WEAPN;wi++){ if(!g_weapLvl[wi]) continue;
-      char line[40]; int n=0; const char*nm=g_weapName[wi]; while(*nm)line[n++]=*nm++; line[n++]=' ';
+      char line[40]; int n=0; const char*nm=g_weapMeta[wi].name; while(*nm)line[n++]=*nm++; line[n++]=' ';
       if(g_weapEvo[wi]){ const char*e="*EVO*"; while(*e)line[n++]=*e++; line[n]=0; }
       else { line[n++]='L'; line[n++]='V'; line[n++]=' '; char nb[8]; fmt_int(nb,g_weapLvl[wi]); const char*p=nb; while(*p)line[n++]=*p++; line[n]=0; }
       center_text(w,(float)h*0.75f+(float)shown*20.0f,1.4f,line, g_weapEvo[wi]?1.0f:0.5f,1.0f,g_weapEvo[wi]?0.4f:0.7f,0.85f);
@@ -339,7 +339,7 @@ static void render_upgrade(int w,int h){
       char num[2]; num[0]=(char)('1'+k); num[1]=0;
       draw_text(x+10.0f,y0+10.0f,2.0f,num,0.6f,0.95f,1.0f,0.8f);
       const char *nm, *ds; int lvl;
-      if(m>=100){ int wid=m-100; nm=g_weapName[wid]; ds=g_weapDesc[wid]; lvl=g_weapLvl[wid]; } /* OC 무기 카드 */
+      if(m>=100){ int wid=m-100; nm=g_weapMeta[wid].name; ds=g_weapMeta[wid].desc; lvl=g_weapLvl[wid]; } /* OC 무기 카드 */
       else { nm=g_modName[m]; ds=g_modDesc[m]; lvl=g_mod[m]; }
       draw_text(x+(cw-text_w(nm,2.0f))*0.5f,y0+52.0f,2.0f,nm,1.0f,1.0f,1.0f,1.0f);
       draw_text(x+(cw-text_w(ds,1.4f))*0.5f,y0+92.0f,1.4f,ds,0.6f,0.95f,1.0f,0.85f);
