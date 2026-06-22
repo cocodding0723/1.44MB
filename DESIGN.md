@@ -769,6 +769,12 @@ docs/07 SDD의 VS/세피리아式 호드 생존 모드를 **별도 모드**로 �
 - **draw3 일반화**: 레어 개수 하드코딩 `8`→`(MODN-MOD_COMMON)` (모듈 추가 확장성). DESCENT 보스 보상 한정(OC 레벨업은 커먼만).
 - 최종 **112,128 bytes** (캡 7.6%).
 
+### v1.7 — OVERCLOCK 신규 무기 SHOCKWAVE (2026-06-22)
+무기 메타 테이블 확장 활용. 9번째 무기(W_SHOCK, WEAPN 8→9):
+- **SHOCKWAVE (W_SHOCK)**: 주기(2.2−0.12×lv초, 최소 0.8s)마다 플레이어 중심 대반경(120+22×lv) 펄스 — 광역 데미지(18+8×lv) + **강한 넉백(320)**. AURA(소형 지속)·NOVA(조준 폭발)와 차별되는 스페이싱/군중제어 도구. 진화 짝=KINETIC(×1.4 반경·×1.5 뎀·주기 0.6). 시각=확장 링 2겹(spawn_ring 재활용, 전용 렌더 불필요).
+- **자동 편입**: oc_draft/oc_check_evo/oc_apply/HUD 모두 WEAPN 순회라 무코드 편입. g_weapMeta 1행 + oc_weapons_update 거동 블록만 추가.
+- 최종 **112,640 bytes** (캡 7.6%).
+
 ---
 *v1.0 (FROZEN) — 전체 리뷰 통과·동결. 사운드/미니맵/상점/옵션/디스플레이 스펙 명세 완료.*
 *v1.1~v1.3a (post-freeze) — §26 changelog 참조. 검증 수정 + 비주얼 폴리시 + 콘텐츠 확장 + QA 밸런스.*

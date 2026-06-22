@@ -381,6 +381,23 @@ static void oc_weapons_update(float dt){
       if(g_boss.active){ float bx=g_boss.pos.x-g_player.pos.x, by=g_boss.pos.y-g_player.pos.y, rr=R+boss_radius(); if(bx*bx+by*by<rr*rr) boss_hit(dm); }
     }
   }
+  if(g_weapLvl[W_SHOCK]){ /* SHOCKWAVE: 주기적 플레이어 중심 대반경 펄스 — 광역 데미지 + 강넉백(스페이싱) */
+    int lv=g_weapLvl[W_SHOCK], evo=g_weapEvo[W_SHOCK];
+    g_weapTimer[W_SHOCK]-=dt;
+    if(g_weapTimer[W_SHOCK]<=0.0f){
+      g_weapTimer[W_SHOCK]=(2.2f-0.12f*(float)lv)*(evo?0.6f:1.0f); if(g_weapTimer[W_SHOCK]<0.8f)g_weapTimer[W_SHOCK]=0.8f;
+      float R=(120.0f+22.0f*(float)lv)*(evo?1.4f:1.0f), dm=(18.0f+8.0f*(float)lv)*(evo?1.5f:1.0f);
+      for(j=0;j<MAXENE;j++){ if(!g_ene[j].active||g_ene[j].spawn>0.0f) continue; Enemy*e=&g_ene[j];
+        float dx=e->pos.x-g_player.pos.x, dy=e->pos.y-g_player.pos.y, rr=R+ene_radius(e->type);
+        if(dx*dx+dy*dy<rr*rr){ float d=f_sqrt(dx*dx+dy*dy); if(d<0.01f)d=0.01f;
+          e->hp-=dm; e->flash=0.06f; e->kvel.x+=dx/d*320.0f; e->kvel.y+=dy/d*320.0f; /* 강한 넉백 */
+          if(e->hp<=0.0f) kill_enemy(j); } }
+      if(g_boss.active){ float bx=g_boss.pos.x-g_player.pos.x, by=g_boss.pos.y-g_player.pos.y, rr=R+boss_radius(); if(bx*bx+by*by<rr*rr) boss_hit(dm); }
+      spawn_ring(g_player.pos.x,g_player.pos.y,20.0f,R*6.0f,0.3f,0.5f,0.85f,1.0f);
+      spawn_ring(g_player.pos.x,g_player.pos.y,10.0f,R*4.0f,0.25f,0.7f,0.95f,1.0f);
+      add_trauma(0.12f); snd_play(SFX_DASH);
+    }
+  }
   if(g_weapLvl[W_SWARM]){ /* SWARM: 최근접 N체에 조준 나이프 일제 발사 (spawn_minib 재활용) */
     int lv=g_weapLvl[W_SWARM];
     g_weapTimer[W_SWARM]-=dt;

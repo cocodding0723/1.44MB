@@ -20,7 +20,7 @@ metadata:
 
 ## 확장 가이드 (어디를 고치나)
 - **적 추가**: `nd_data.inc`의 `g_eneStat[]`에 한 줄(r/spd/hp/색) + AI는 `nd_combat.inc`의 `enemy_update(i,dt)` 함수 내 타입 분기 + draw_enemy/batched 렌더 분기 + pick_enemy_type 해금. (스탯 4함수 흩어짐→테이블 단일화. 적 AI는 combat_update에서 enemy_update로 분리.)
-- **OVERCLOCK 무기 추가**: `nd_data.inc` W_* 매크로+WEAPN++·**`g_weapMeta[]` 테이블 한 줄**(name/desc/evoReq 통합), `nd_entity.inc` oc_weapons_update 거동 블록·oc_draft 후보, `nd_render.inc` 시각화 블록. (메타 3배열→단일 WeapMeta 테이블, +512B.)
+- **OVERCLOCK 무기 추가**: `nd_data.inc` W_* 매크로+WEAPN++·**`g_weapMeta[]` 테이블 한 줄**(name/desc/evoReq, evoReq는 미사용 커먼 모듈 고유 페어) + `nd_entity.inc` oc_weapons_update 거동 블록 하나. **oc_draft/oc_check_evo/oc_apply/HUD/arsenal 전부 WEAPN 순회라 자동 편입**(수정 불필요). 렌더는 선택(지속 비주얼이면 nd_render.inc 블록, 펄스류는 spawn_ring 재활용으로 불필요). v1.7 SHOCKWAVE가 예시(거동 블록+메타 한 줄만, +512B).
 - **모듈 추가**: nd_data.inc M_* enum + g_modName/Desc[MODN] 배열 + combat 효과(g_mod[M_X] 체크). **커먼은 인덱스 0~17(MOD_COMMON) 연속**(g_modW 가중치 있음), **레어는 끝에 append**(18~MODN, 가중 균등 10·draw3 레어분기). draw3 레어개수=MODN-MOD_COMMON. 즉시효과는 apply_mod 분기. 레어 과중첩 캡은 draw3 레어분기에. (v1.6 CRYO/EXECUTE가 레어 append 예시.)
 
 ## 신규 콘텐츠 (확장 구조 첫 활용)
