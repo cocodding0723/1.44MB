@@ -95,6 +95,7 @@ static void player_update(float dt){
   } else g_player.pos.y=nyp;
 }
 
+static void spawn_minib(float x,float y,float ux,float uy,float dmg); /* 전방 선언(정의는 후방, SHRAPNEL용) */
 static void kill_enemy(int idx){
   Enemy*e=&g_ene[idx];
   e->active=0; g_kills++;
@@ -102,6 +103,7 @@ static void kill_enemy(int idx){
   snd_play(SFX_DEATH);
   burst(e->pos.x,e->pos.y,16,240.0f,1.0f,0.5f,0.2f);
   spawn_ring(e->pos.x,e->pos.y,6.0f,360.0f,0.3f,1.0f,0.6f,0.25f);
+  if(g_mod[M_SHRAPNEL]){ int sn=4+2*g_mod[M_SHRAPNEL], sq; for(sq=0;sq<sn;sq++){ float sa=(float)sq*6.2831853f/(float)sn; spawn_minib(e->pos.x,e->pos.y,f_cos(sa),f_sin(sa),BUL_DMG*0.4f); } } /* 파편(레어): 사망 시 방사 미니탄(지연 → 재귀 없음) */
   if(e->type==3){ /* 포크: Shard 2 분열 (재분열 없음, §8.4; 벽 내부 스폰 폴백) */
     float lx=is_wall_w(e->pos.x-10.0f,e->pos.y)?e->pos.x:e->pos.x-10.0f;
     float rx=is_wall_w(e->pos.x+10.0f,e->pos.y)?e->pos.x:e->pos.x+10.0f;

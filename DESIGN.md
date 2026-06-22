@@ -783,6 +783,11 @@ docs/07 SDD의 VS/세피리아式 호드 생존 모드를 **별도 모드**로 �
 - **확장 구조 활용**: g_eneStat[9] 1행 + enemy_update 타입 분기 + draw_enemy 헥스 렌더 + pick_enemy_type/oc_pick_type 해금(oc 배열 [8]→[10]). rules/50 목업(`enemy-hive-v1.png`) ✅승인 후 구현.
 - 최종 **114,176 bytes** (캡 7.7%).
 
+### v1.9 — 레어 모듈 SHRAPNEL + draw3 선제방어 (2026-06-22)
+- **SHRAPNEL (M_SHRAPNEL, 레어)**: 적 처치 시 방사 미니탄(4+2×stacks발, BUL_DMG×0.4) 방출 → 연쇄 클리어. EXPLODE(피격 AoE)·SPLIT(피격 분기)과 차별되는 **사망 트리거**. spawn_minib 지연 탄(즉시 데미지 아님 → 재귀 없음, kill_enemy 전방선언). DESCENT 한정(OC 레벨업 커먼만).
+- **draw3 w[] 배열 MOD_COMMON→MODN**: QA(통합) MED — 레어 풀 18 초과 시 스택 오버런 선제 방어(현재 12개로 안전, 향후 확장 대비).
+- 최종 **114,176 bytes** (캡 7.7%). QA 통합 검증 CRIT/HIGH 0.
+
 ---
 *v1.0 (FROZEN) — 전체 리뷰 통과·동결. 사운드/미니맵/상점/옵션/디스플레이 스펙 명세 완료.*
 *v1.1~v1.3a (post-freeze) — §26 changelog 참조. 검증 수정 + 비주얼 폴리시 + 콘텐츠 확장 + QA 밸런스.*
