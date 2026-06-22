@@ -173,6 +173,8 @@ static void fmt_int(char *buf,int v){ /* 자작 정수→글리프 (printf 금�
   for(i=0;i<n;i++) buf[i]=tmp[n-1-i];
   buf[n]=0;
 }
+/* 문자열 이어붙이기 헬퍼: b[n..]에 s 복사, 새 길이 반환. HUD 텍스트 조립 보일러플레이트 축약 */
+static int sapp(char*b,int n,const char*s){ while(*s)b[n++]=*s++; return n; }
 static void draw_int(float x,float y,float s,int v,float r,float g,float b,float a){
   char buf[12]; fmt_int(buf,v); draw_text(x,y,s,buf,r,g,b,a);
 }

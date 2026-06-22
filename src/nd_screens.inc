@@ -106,7 +106,7 @@ static void oc_render_hud(int w,int h){
     tb[n++]=(char)('0'+(mm/10)%10); tb[n++]=(char)('0'+mm%10); tb[n++]=':'; tb[n++]=(char)('0'+ss/10); tb[n++]=(char)('0'+ss%10); tb[n]=0;
     draw_text((float)w-text_w(tb,2.6f)-20.0f,18.0f,2.6f,tb,1.0f,1.0f,1.0f,0.95f); }
   /* KILLS */
-  { char kb[16]; int n=0; const char*s="KILLS "; while(*s)kb[n++]=*s++; fmt_int(kb+n,g_kills);
+  { char kb[16]; int n=0; n=sapp(kb,n,"KILLS "); fmt_int(kb+n,g_kills);
     draw_text((float)w-text_w(kb,1.6f)-20.0f,50.0f,1.6f,kb,0.6f,0.95f,1.0f,0.8f); }
   /* 보스 HP 바 */
   if(g_boss.active){ float bw=380.0f, bx=((float)w-bw)*0.5f, by=34.0f, fr2=g_boss.hp/g_boss.maxhp; if(fr2<0.0f)fr2=0.0f;
@@ -168,8 +168,8 @@ static void render_codex(int w,int h){ /* 코덱스 뷰어 (§08 N2) — 해금 
   for(i=0;i<CODEXN;i++){
     if(g_codex&(1u<<i)){ diamond_fill(46.0f,y+5.0f,4.0f,0.5f,1.0f,0.9f,0.9f); /* 해금 마커 */
       draw_text_multi(60.0f,y,1.6f,g_codexTxt[i],0.6f,1.0f,0.95f,0.92f,-1); }
-    else { char line[20]; int n=0; const char*s="FRAG 0"; while(*s)line[n++]=*s++; line[n++]=(char)('1'+i);
-      { const char*s2=": LOCKED"; while(*s2)line[n++]=*s2++; } line[n]=0;
+    else { char line[20]; int n=0; n=sapp(line,n,"FRAG 0"); line[n++]=(char)('1'+i);
+      { n=sapp(line,n,": LOCKED"); } line[n]=0;
       draw_text(60.0f,y,1.6f,line,0.4f,0.4f,0.5f,0.55f); }
     y+=(float)h*0.094f;
   }
@@ -219,15 +219,15 @@ static void render_title(int w,int h){
     float y=(float)h*0.78f;
     center_text(w,y,2.0f,"BEST",0.4f,0.9f,1.0f,0.7f);
     fmt_int(buf,g_bestLayer);
-    { char line[24]; int n=0; const char*s1="LAYER "; while(*s1)line[n++]=*s1++; const char*p=buf; while(*p)line[n++]=*p++; line[n]=0;
+    { char line[24]; int n=0; n=sapp(line,n,"LAYER "); n=sapp(line,n,buf); line[n]=0;
       center_text(w,y+26.0f,2.0f,line,1.0f,1.0f,1.0f,0.8f); }
     fmt_int(buf,g_bestScore);
-    { char line[24]; int n=0; const char*s2="SCORE "; while(*s2)line[n++]=*s2++; const char*p=buf; while(*p)line[n++]=*p++; line[n]=0;
+    { char line[24]; int n=0; n=sapp(line,n,"SCORE "); n=sapp(line,n,buf); line[n]=0;
       center_text(w,y+52.0f,2.0f,line,1.0f,1.0f,1.0f,0.8f); }
   }
-  { char buf[12]; char line[36]; int n=0; const char*s="CODEX "; while(*s)line[n++]=*s++; /* 메타: 코덱스/부패도 (§08 N2) */
-    fmt_int(buf,popcnt((unsigned char)g_codex)); { const char*p=buf; while(*p)line[n++]=*p++; }
-    { const char*s2="/8   C TO VIEW"; while(*s2)line[n++]=*s2++; } line[n]=0;
+  { char buf[12]; char line[36]; int n=0; n=sapp(line,n,"CODEX "); /* 메타: 코덱스/부패도 (§08 N2) */
+    fmt_int(buf,popcnt((unsigned char)g_codex)); { n=sapp(line,n,buf); }
+    { n=sapp(line,n,"/8   C TO VIEW"); } line[n]=0;
     center_text(w,(float)h*0.90f,1.5f,line,0.5f,0.85f,1.0f,0.55f); }
 }
 
@@ -238,40 +238,40 @@ static void render_gameover(int w,int h){
   float cy=(float)h*0.22f;
   center_text(w,cy,5.0f, g_mode==MODE_OVERCLOCK?"OVERCLOCK ENDS":"SIGNAL LOST",1.0f,0.3f,0.4f,0.95f);
   if(g_mode==MODE_OVERCLOCK){ /* OVERCLOCK 정산: 생존시간·LV·킬·점수 (docs/07 §3.7) */
-    { int sec=(int)g_ocT, mm=sec/60, ss=sec%60; char line[28]; int n=0; const char*s="SURVIVED "; while(*s)line[n++]=*s++;
+    { int sec=(int)g_ocT, mm=sec/60, ss=sec%60; char line[28]; int n=0; n=sapp(line,n,"SURVIVED ");
       line[n++]=(char)('0'+(mm/10)%10); line[n++]=(char)('0'+mm%10); line[n++]=':'; line[n++]=(char)('0'+ss/10); line[n++]=(char)('0'+ss%10); line[n]=0;
       center_text(w,cy+58.0f,2.4f,line,1.0f,1.0f,1.0f,0.85f); }
     { float y=cy+110.0f; char buf[12]; char line[32]; int n;
-      n=0; { const char*s="LEVEL X200 : "; while(*s)line[n++]=*s++; } fmt_int(buf,g_ocLevel*200); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+      n=0; { n=sapp(line,n,"LEVEL X200 : "); } fmt_int(buf,g_ocLevel*200); { n=sapp(line,n,buf); } line[n]=0;
       center_text(w,y,2.0f,line,0.5f,1.0f,0.7f,0.85f);
-      n=0; { const char*s="KILLS X5 : "; while(*s)line[n++]=*s++; } fmt_int(buf,g_kills*5); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+      n=0; { n=sapp(line,n,"KILLS X5 : "); } fmt_int(buf,g_kills*5); { n=sapp(line,n,buf); } line[n]=0;
       center_text(w,y+26.0f,2.0f,line,0.6f,0.95f,1.0f,0.85f);
-      n=0; { const char*s="BOSS X1000 : "; while(*s)line[n++]=*s++; } fmt_int(buf,g_bossKills*1000); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+      n=0; { n=sapp(line,n,"BOSS X1000 : "); } fmt_int(buf,g_bossKills*1000); { n=sapp(line,n,buf); } line[n]=0;
       center_text(w,y+52.0f,2.0f,line,1.0f,0.5f,0.8f,0.85f);
-      n=0; { const char*s="SCORE "; while(*s)line[n++]=*s++; } fmt_int(buf,oc_score()); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+      n=0; { n=sapp(line,n,"SCORE "); } fmt_int(buf,oc_score()); { n=sapp(line,n,buf); } line[n]=0;
       center_text(w,y+96.0f,3.2f,line,1.0f,1.0f,1.0f,1.0f);
-      n=0; { const char*s="( BEST "; while(*s)line[n++]=*s++; } fmt_int(buf,g_bestScore); { const char*p=buf; while(*p)line[n++]=*p++; } { const char*s2=" )"; while(*s2)line[n++]=*s2++; } line[n]=0;
+      n=0; { n=sapp(line,n,"( BEST "); } fmt_int(buf,g_bestScore); { n=sapp(line,n,buf); } { n=sapp(line,n," )"); } line[n]=0;
       center_text(w,y+132.0f,1.8f,line,0.6f,0.9f,1.0f,0.75f);
     }
   } else {
-  { char buf[12]; char line[28]; int n=0; const char*s="LAYER "; while(*s)line[n++]=*s++;
-    fmt_int(buf,g_depth); { const char*p=buf; while(*p)line[n++]=*p++; }
-    { const char*s2=" REACHED"; while(*s2)line[n++]=*s2++; } line[n]=0;
+  { char buf[12]; char line[28]; int n=0; n=sapp(line,n,"LAYER ");
+    fmt_int(buf,g_depth); { n=sapp(line,n,buf); }
+    { n=sapp(line,n," REACHED"); } line[n]=0;
     center_text(w,cy+58.0f,2.4f,line,1.0f,1.0f,1.0f,0.85f); }
   if(g_deathMsg) center_text(w,cy+90.0f,1.6f,g_deathMsg,0.75f,0.5f,0.55f,0.8f); /* 서사: 사망 에피타프 */
   /* 점수 분해 (§17) */
   { float y=cy+120.0f; char buf[12]; char line[32]; int n;
-    n=0; { const char*s="LAYER X1000 : "; while(*s)line[n++]=*s++; } fmt_int(buf,g_depth*1000); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+    n=0; { n=sapp(line,n,"LAYER X1000 : "); } fmt_int(buf,g_depth*1000); { n=sapp(line,n,buf); } line[n]=0;
     center_text(w,y,2.0f,line,0.6f,0.95f,1.0f,0.85f);
-    n=0; { const char*s="KILLS X25 : "; while(*s)line[n++]=*s++; } fmt_int(buf,g_kills*25); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+    n=0; { n=sapp(line,n,"KILLS X25 : "); } fmt_int(buf,g_kills*25); { n=sapp(line,n,buf); } line[n]=0;
     center_text(w,y+26.0f,2.0f,line,0.6f,0.95f,1.0f,0.85f);
-    n=0; { const char*s="BITS X5 : "; while(*s)line[n++]=*s++; } fmt_int(buf,g_bits*5); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+    n=0; { n=sapp(line,n,"BITS X5 : "); } fmt_int(buf,g_bits*5); { n=sapp(line,n,buf); } line[n]=0;
     center_text(w,y+52.0f,2.0f,line,1.0f,0.95f,0.5f,0.85f);
-    n=0; { const char*s="BOSS X500 : "; while(*s)line[n++]=*s++; } fmt_int(buf,g_bossKills*500); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+    n=0; { n=sapp(line,n,"BOSS X500 : "); } fmt_int(buf,g_bossKills*500); { n=sapp(line,n,buf); } line[n]=0;
     center_text(w,y+78.0f,2.0f,line,1.0f,0.5f,0.8f,0.85f);
-    n=0; { const char*s="SCORE "; while(*s)line[n++]=*s++; } fmt_int(buf,score_now()); { const char*p=buf; while(*p)line[n++]=*p++; } line[n]=0;
+    n=0; { n=sapp(line,n,"SCORE "); } fmt_int(buf,score_now()); { n=sapp(line,n,buf); } line[n]=0;
     center_text(w,y+122.0f,3.2f,line,1.0f,1.0f,1.0f,1.0f);
-    n=0; { const char*s="( BEST "; while(*s)line[n++]=*s++; } fmt_int(buf,g_bestScore); { const char*p=buf; while(*p)line[n++]=*p++; } { const char*s2=" )"; while(*s2)line[n++]=*s2++; } line[n]=0;
+    n=0; { n=sapp(line,n,"( BEST "); } fmt_int(buf,g_bestScore); { n=sapp(line,n,buf); } { n=sapp(line,n," )"); } line[n]=0;
     center_text(w,y+158.0f,1.8f,line,0.6f,0.9f,1.0f,0.75f); /* §18 목업 BEST 줄 */
   }
   }
@@ -288,16 +288,16 @@ static void render_pause(int w,int h){
   center_text(w,(float)h*0.38f,5.0f,"PAUSED",0.55f,1.0f,1.0f,0.95f);
   center_text(w,(float)h*0.55f,2.0f,"ESC RESUME - Q QUIT",1.0f,1.0f,1.0f,0.6f);
   /* 옵션 (§18 광과민 대응): S 셰이크 / F 플래시 / M 음소거 */
-  { char line[80]; int n=0; const char*s1="S SHAKE "; while(*s1)line[n++]=*s1++;
-    { char b2[8]; fmt_int(b2,(int)(g_optShake*100.0f)); const char*p=b2; while(*p)line[n++]=*p++; }
-    { const char*s2="  F FLASH "; while(*s2)line[n++]=*s2++; }
-    { char b2[8]; fmt_int(b2,(int)(g_optFlash*100.0f)); const char*p=b2; while(*p)line[n++]=*p++; }
-    { const char*s3="  C CRT "; while(*s3)line[n++]=*s3++; }
-    { char b2[8]; fmt_int(b2,(int)(g_optCRT*100.0f)); const char*p=b2; while(*p)line[n++]=*p++; }
-    { const char*s5="  M MUTE "; while(*s5)line[n++]=*s5++; }
-    { const char*s4=g_mute?"ON":"OFF"; while(*s4)line[n++]=*s4++; }
-    { const char*s6="  B BGM "; while(*s6)line[n++]=*s6++; }
-    { const char*s7=g_bgm?"ON":"OFF"; while(*s7)line[n++]=*s7++; }
+  { char line[80]; int n=0; n=sapp(line,n,"S SHAKE ");
+    { char b2[8]; fmt_int(b2,(int)(g_optShake*100.0f)); n=sapp(line,n,b2); }
+    { n=sapp(line,n,"  F FLASH "); }
+    { char b2[8]; fmt_int(b2,(int)(g_optFlash*100.0f)); n=sapp(line,n,b2); }
+    { n=sapp(line,n,"  C CRT "); }
+    { char b2[8]; fmt_int(b2,(int)(g_optCRT*100.0f)); n=sapp(line,n,b2); }
+    { n=sapp(line,n,"  M MUTE "); }
+    { n=sapp(line,n,g_mute?"ON":"OFF"); }
+    { n=sapp(line,n,"  B BGM "); }
+    { n=sapp(line,n,g_bgm?"ON":"OFF"); }
     line[n]=0;
     center_text(w,(float)h*0.63f,1.6f,line,0.6f,0.9f,1.0f,0.6f);
   }
@@ -306,9 +306,9 @@ static void render_pause(int w,int h){
     center_text(w,(float)h*0.72f,1.6f,"- ARSENAL -",0.5f,1.0f,0.7f,0.7f);
     int wi, shown=0;
     for(wi=0;wi<WEAPN;wi++){ if(!g_weapLvl[wi]) continue;
-      char line[40]; int n=0; const char*nm=g_weapMeta[wi].name; while(*nm)line[n++]=*nm++; line[n++]=' ';
-      if(g_weapEvo[wi]){ const char*e="*EVO*"; while(*e)line[n++]=*e++; line[n]=0; }
-      else { line[n++]='L'; line[n++]='V'; line[n++]=' '; char nb[8]; fmt_int(nb,g_weapLvl[wi]); const char*p=nb; while(*p)line[n++]=*p++; line[n]=0; }
+      char line[40]; int n=0; n=sapp(line,n,g_weapMeta[wi].name); line[n++]=' ';
+      if(g_weapEvo[wi]){ n=sapp(line,n,"*EVO*"); line[n]=0; }
+      else { line[n++]='L'; line[n++]='V'; line[n++]=' '; char nb[8]; fmt_int(nb,g_weapLvl[wi]); n=sapp(line,n,nb); line[n]=0; }
       center_text(w,(float)h*0.75f+(float)shown*20.0f,1.4f,line, g_weapEvo[wi]?1.0f:0.5f,1.0f,g_weapEvo[wi]?0.4f:0.7f,0.85f);
       shown++;
     }
