@@ -299,10 +299,11 @@ static int acquire_target(float ox,float oy,float maxR){
 }
 /* 시간 게이팅 적 추첨 (§3.5): fodder 위주 → 점차 해금 */
 static int oc_pick_type(void){
-  int types[8], w[8], n=0, i, tot=0;
+  int types[10], w[10], n=0, i, tot=0;
   types[n]=0; w[n++]=10;            /* HUNTER */
   types[n]=4; w[n++]=8;             /* SHARD = MITE fodder (§6) */
   if(g_ocT>=60.0f){ types[n]=1; w[n++]=5; types[n]=2; w[n++]=5; types[n]=5; w[n++]=4; }
+  if(g_ocT>=120.0f){ types[n]=8; w[n++]=3; } /* +HIVE (v1.8): 소환 노드, 낮은 빈도 */
   if(g_ocT>=180.0f){ types[n]=3; w[n++]=4; types[n]=6; w[n++]=4; types[n]=7; w[n++]=4; } /* +PHANTOM (v1.5) */
   for(i=0;i<n;i++) tot+=w[i];
   int r=(int)(xrnd()%(unsigned)tot);

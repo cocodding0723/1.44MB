@@ -127,6 +127,18 @@ static void draw_enemy(Enemy*e){
     diamond_fill(x,y,r,fr*flick,fg*flick,fb*flick,0.95f);
     diamond_fill(x,y,r*0.4f,1.0f,1.0f,1.0f,0.9f);
   }
+  else if(e->type==8){ /* HIVE: 회전 헥스 노드 + 맥동 출산 코어 (소환 노드, v1.8) */
+    int kk; glColor4f(fr,fg,fb,gpop); hex_fill(x,y,r*1.5f);
+    if(fl){ fr=fg=fb=1.0f; }
+    glColor4f(fr*flick,fg*flick,fb*flick,0.95f); hex_fill(x,y,r);
+    float a=t*0.6f;
+    glColor4f(1.0f,0.8f,0.5f,0.7f); glBegin(GL_LINE_LOOP);
+    for(kk=0;kk<6;kk++){ float aa=(float)kk*1.0471976f-a; glVertex2f(x+f_cos(aa)*r*0.62f,y+f_sin(aa)*r*0.62f); } glEnd();
+    float prog=e->t2/3.0f; if(prog>1.0f)prog=1.0f; float cs=r*(0.30f+0.16f*prog); /* 출산 임박 → 코어 팽창 */
+    glColor4f(1.0f,0.92f,0.7f,0.9f); glBegin(GL_TRIANGLES);
+    for(kk=0;kk<3;kk++){ float aa=a*2.0f+(float)kk*2.0943951f; glVertex2f(x+f_cos(aa)*cs,y+f_sin(aa)*cs); } glEnd();
+    if(e->t2>2.5f){ glColor4f(1.0f,0.85f,0.55f,(e->t2-2.5f)/0.5f*0.6f); circle_line(x,y,r+8.0f,12); } /* 스폰 경고링 */
+  }
   else { /* SHARD: 글로우 + 회전 삼각 + 중심점 */
     int kk; circle_fill(x,y,r*1.5f,8,fr,fg,fb,gpop);
     float a=t*4.0f;

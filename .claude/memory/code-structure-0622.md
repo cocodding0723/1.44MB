@@ -23,8 +23,11 @@ metadata:
 - **OVERCLOCK 무기 추가**: `nd_data.inc` W_* 매크로+WEAPN++·**`g_weapMeta[]` 테이블 한 줄**(name/desc/evoReq, evoReq는 미사용 커먼 모듈 고유 페어) + `nd_entity.inc` oc_weapons_update 거동 블록 하나. **oc_draft/oc_check_evo/oc_apply/HUD/arsenal 전부 WEAPN 순회라 자동 편입**(수정 불필요). 렌더는 선택(지속 비주얼이면 nd_render.inc 블록, 펄스류는 spawn_ring 재활용으로 불필요). v1.7 SHOCKWAVE가 예시(거동 블록+메타 한 줄만, +512B).
 - **모듈 추가**: nd_data.inc M_* enum + g_modName/Desc[MODN] 배열 + combat 효과(g_mod[M_X] 체크). **커먼은 인덱스 0~17(MOD_COMMON) 연속**(g_modW 가중치 있음), **레어는 끝에 append**(18~MODN, 가중 균등 10·draw3 레어분기). draw3 레어개수=MODN-MOD_COMMON. 즉시효과는 apply_mod 분기. 레어 과중첩 캡은 draw3 레어분기에. (v1.6 CRYO/EXECUTE가 레어 append 예시.)
 
-## 신규 콘텐츠 (확장 구조 첫 활용)
-- **PHANTOM (적 type 7, v1.5, 2026-06-22)**: 순간이동 교란 적. 위 "적 추가" 플로우대로 g_eneStat[8] 1행 + enemy_update 분기 + draw_enemy 분기(배칭은 다이아 폴백) + pick_enemy_type(L7)/oc_pick_type(t180). rules/50 목업 승인 후 구현. +1KB(111,104B). 임시 해금 낮춰 양 모드 스폰 검증 후 정상 복원.
+## 신규 콘텐츠 (2026-06-22 세션, 확장 구조 활용) — 적 9종/모듈 29/무기 10
+- **적 PHANTOM(type7, v1.5, L7/t180)**: 순간이동 교란. **HIVE(type8, v1.8, L8/t120)**: 소환 노드(3s SHARD, 적<80 캡). 둘 다 g_eneStat 1행+enemy_update 분기+draw_enemy 렌더(배칭 다이아 폴백)+해금. rules/50 목업 승인 후 구현. **주의: oc_pick_type types/w 로컬배열은 해금 티어 추가 시 크기 키워야**(8→10).
+- **레어 모듈 CRYO/EXECUTE/PHASE EDGE(v1.6)**: draw3 레어개수=MODN-MOD_COMMON, 과중첩 캡은 draw3 레어분기. CRYO는 Enemy.slowT 필드 추가.
+- **OC 무기 SHOCKWAVE/SCATTER(v1.7)**: g_weapMeta 1행+거동 블록, 나머지 WEAPN 순회 자동. 펄스=spawn_ring/탄막=spawn_minib 재활용(전용 렌더 불필요).
+- 각 신규 콘텐츠: 임시 해금/부여 낮춰 양 모드 스폰·동작 검증 후 정상 복원 → code-reviewer-game(CRIT/HIGH 0) → 문서(DESIGN §26·검사기준·CONFIRMATIONS) 동기화.
 
 ## 검증
-원본 단일 game.c vs 분할본 빌드 = exe 동일(110,080). 적 테이블 통합 후 109,568(−512B). 무기메타 110,080. sapp 110,080. enemy_update 추출 110,080(byte-identical). PHANTOM 111,104. 양 모드·전 화면 안정성 확인.
+리팩토링: 원본 game.c vs 분할 = exe 동일. enemy_update 추출 byte-identical(110,080). 콘텐츠 누적: 110,080→114,176(+4,096B, 캡 7.7%, GREEN). 양 모드·전 화면·신규 콘텐츠 안정성 확인. QA 패스(WARDEN 8→12px/s 추적성 수정).

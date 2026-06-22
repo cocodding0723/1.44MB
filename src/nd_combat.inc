@@ -98,6 +98,17 @@ static void enemy_update(int i, float dt){
         float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
         if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny;
       } /* 1.7~2.2s = 텔레그래프(정지, 렌더가 목적지 고스트 표시) */
+    } else if(e->type==8){ /* HIVE: 느린 드리프트 + 주기 SHARD 소환 (우선표적, v1.8) */
+      float vx=dx/dist*spd+kx, vy=dy/dist*spd+ky;
+      float nx=e->pos.x+vx*dt, ex2=nx+(vx>0?r:-r);
+      if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx;
+      float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
+      if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny;
+      e->t2+=dt;
+      if(e->t2>=3.0f){ e->t2=0.0f; /* SHARD 방출 (적 수 캡으로 폭주 방지) */
+        int na=0,q; for(q=0;q<MAXENE;q++) if(g_ene[q].active) na++;
+        if(na<80){ int ci=spawn_enemy(4,e->pos.x+rndsym()*28.0f,e->pos.y+rndsym()*28.0f,0); if(ci>=0) g_ene[ci].spawn=0.3f;
+          spawn_ring(e->pos.x,e->pos.y,r,260.0f,0.3f,1.0f,0.5f,0.15f); } }
     }
     /* 접촉 데미지 (+ 가시 모듈: 접촉 적 반격) */
     float cr=r+g_player.radius;
