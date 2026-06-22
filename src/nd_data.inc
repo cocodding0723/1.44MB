@@ -217,7 +217,7 @@ static void draw3(int rare){ /* 시너지 가중 추첨 (§7), 슬롯 간 중복
   int k,i;
   g_upgSel[0]=g_upgSel[1]=g_upgSel[2]=-1;
   for(k=0;k<3;k++){
-    int w[MOD_COMMON], total=0, n=rare?(MODN-MOD_COMMON):MOD_COMMON;
+    int w[MODN], total=0, n=rare?(MODN-MOD_COMMON):MOD_COMMON; /* w는 MODN 크기 — 레어 풀 확장 안전(QA MED) */
     for(i=0;i<n;i++){
       int mi=rare?MOD_COMMON+i:i, dup=0, q;
       w[i]=0;
