@@ -272,6 +272,18 @@ static void boss_update(float dt){
     B->t3+=dt; if(B->t3>=8.0f){ B->t3=0.0f; int tc=0,tt; for(tt=0;tt<MAXENE;tt++) if(g_ene[tt].active&&g_ene[tt].type==1)tc++; /* 터릿 소환: 최대 2, 방 경계 클램프 */
       if(tc<2){ float tsx=nx3[0], tsy=ny3[0]; if(tsx<mnx)tsx=mnx; if(tsx>mxx)tsx=mxx; if(tsy<mny)tsy=mny; if(tsy>mxy)tsy=mxy; spawn_enemy(1,tsx,tsy,0); } }
     for(kk2=0;kk2<3;kk2++){ float ndx=nx3[kk2]-g_player.pos.x, ndy=ny3[kk2]-g_player.pos.y, rr=14.0f+g_player.radius; if(ndx*ndx+ndy*ndy<rr*rr) hurt_player(1.0f); }
+  } else if(B->type==3){ /* === THE PULSAR: 방사 탄막 리액터 (v2.0, OC 전용) === */
+    float cdx=rcx-B->pos.x, cdy=rcy-B->pos.y; /* 아레나 중앙 지향 느린 부유 */
+    B->pos.x+=cdx*0.6f*dt; B->pos.y+=cdy*0.6f*dt;
+    B->segAng+=(ph==3?1.6f:0.9f)*dt; /* 링/나선 회전 오프셋 */
+    B->t1+=dt; /* P1+: 확장 방사 링 */
+    if(B->t1>=(ph==3?1.4f:2.2f)){ B->t1=0.0f; int nb=ph==3?20:14, b2;
+      for(b2=0;b2<nb;b2++){ float a=B->segAng+(float)b2*6.2831853f/(float)nb; spawn_ebul(B->pos.x,B->pos.y,f_cos(a),f_sin(a),200.0f,4.0f); }
+      if(ph==3) for(b2=0;b2<nb;b2++){ float a=B->segAng+0.157f+(float)b2*6.2831853f/(float)nb; spawn_ebul(B->pos.x,B->pos.y,f_cos(a),f_sin(a),150.0f,4.0f); } /* P3 이중 링(저속 오프셋) */
+      snd_play(SFX_SHOOT); }
+    if(ph>=2){ B->t2+=dt; /* P2+: 역회전 나선 팔 4개 발사(회전 스트림) */
+      if(B->t2>=(ph==3?0.16f:0.28f)){ B->t2=0.0f; int b2;
+        for(b2=0;b2<4;b2++){ float a=-B->segAng*2.2f+(float)b2*1.5707963f; spawn_ebul(B->pos.x,B->pos.y,f_cos(a),f_sin(a),250.0f,4.0f); } } }
   }
   /* 트레일 수명/접촉 */
   for(k=0;k<MAXTRAIL;k++){ if(!g_trail[k].active) continue;
@@ -482,7 +494,7 @@ static void oc_boss_waves(float dt){
   g_ocBossT-=dt;
   if(g_ocBossT<=0.0f){
     g_ocBossT=120.0f; g_ocBossCount++;
-    int type=(g_ocBossCount-1)%3;
+    int type=(g_ocBossCount-1)%4; /* OC 전용 4보스 순환: CORE/WARDEN/NEXUS/PULSAR (v2.0). DESCENT는 %3 불변 */
     boss_setup_bounds(g_arenaX0+TILEF,g_arenaX1-TILEF,g_arenaY0+TILEF,g_arenaY1-TILEF);
     float span=(g_arenaX1-g_arenaX0)>(g_arenaY1-g_arenaY0)?(g_arenaX1-g_arenaX0):(g_arenaY1-g_arenaY0); /* DESCENT와 동일: max(w,h) */
     boss_spawn(type,g_ocBossCount,1.0f+0.3f*(float)(g_ocBossCount-1),0.5f*span);

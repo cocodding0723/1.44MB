@@ -788,6 +788,13 @@ docs/07 SDD의 VS/세피리아式 호드 생존 모드를 **별도 모드**로 �
 - **draw3 w[] 배열 MOD_COMMON→MODN**: QA(통합) MED — 레어 풀 18 초과 시 스택 오버런 선제 방어(현재 12개로 안전, 향후 확장 대비).
 - 최종 **114,176 bytes** (캡 7.7%). QA 통합 검증 CRIT/HIGH 0.
 
+### v2.0 — 신규 보스 THE PULSAR (2026-06-23, OVERCLOCK 전용, 사용자 ✅승인)
+4번째 보스(type 3). 기존 3보스(CORE 레이저/WARDEN 압축/NEXUS 노드)에 없는 **방사 탄막(bullet-hell)** 아키타입:
+- **THE PULSAR**: 회전 에너지 리액터. 아레나 중앙 부유 + 페이즈 패턴 — **P1** 확장 방사 링(14발, 회전 오프셋) → **P2** +역회전 나선 팔 4개 발사(0.28s 스트림) → **P3(격노)** 이중 링(20+20 저속 오프셋)·나선 0.16s·고속 회전. spawn_ebul(적 탄, 충돌·렌더 기존) 재활용. 일렉트릭 옐로 코어+동심링+나선 팔 렌더. boss_radius 52.
+- **OVERCLOCK 전용**: oc_boss_waves 순환 `%3→%4`(CORE/WARDEN/NEXUS/PULSAR). **DESCENT 보스 로테이션(`(k-1)%3`)·최종보스-엔딩(g_finalBoss) 완전 불변** — PULSAR는 DESCENT 미등장, boss_die OC return이 엔딩 분기보다 선행. g_xmitBoss[3]→[4](PULSAR 인트로).
+- **격리 검증**: code-reviewer-game CRIT/HIGH 0 — 동결 DESCENT 회귀·엔딩 오발 구조적 차단 확인. 탄 풀 graceful, 결정론 유지(sim RNG 미사용).
+- 최종 **115,712 bytes** (캡 7.85%).
+
 ---
 *v1.0 (FROZEN) — 전체 리뷰 통과·동결. 사운드/미니맵/상점/옵션/디스플레이 스펙 명세 완료.*
 *v1.1~v1.3a (post-freeze) — §26 changelog 참조. 검증 수정 + 비주얼 폴리시 + 콘텐츠 확장 + QA 밸런스.*

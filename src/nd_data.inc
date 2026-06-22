@@ -383,7 +383,7 @@ typedef struct { vec2 pos; float life; unsigned char active; } TrailP;
 #define MAXTRAIL 96
 static TrailP g_trail[MAXTRAIL];
 static int boss_layer(void){ return (g_depth%3)==0; }
-static float boss_radius(void){ return g_boss.type==0?50.0f:(g_boss.type==2?45.0f:60.0f); }
+static float boss_radius(void){ return g_boss.type==0?50.0f:(g_boss.type==2?45.0f:(g_boss.type==3?52.0f:60.0f)); }
 /* 빔 충돌: 원점(bx,by) 방향(ux,uy 단위) 반두께 halfw 길이 maxlen vs 원(px,py,pr) */
 static int beam_hit(float bx,float by,float ux,float uy,float halfw,float px,float py,float pr,float maxlen){
   float rx=px-bx, ry=py-by, along=rx*ux+ry*uy;

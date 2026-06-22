@@ -8,7 +8,7 @@ static void render_hud(int w,int h){
   if(g_boss.active){
     float bw=380.0f, bx=((float)w-bw)*0.5f, by=22.0f, fr2=g_boss.hp/g_boss.maxhp;
     if(fr2<0.0f)fr2=0.0f;
-    center_text(w,8.0f,1.4f,g_boss.type==0?"SUBCORE - THE CORE":(g_boss.type==2?"SUBCORE - THE NEXUS":"SUBCORE - THE WARDEN"),1.0f,0.4f,0.5f,0.9f);
+    center_text(w,8.0f,1.4f,g_boss.type==0?"SUBCORE - THE CORE":(g_boss.type==2?"SUBCORE - THE NEXUS":(g_boss.type==3?"SUBCORE - THE PULSAR":"SUBCORE - THE WARDEN")),1.0f,0.4f,0.5f,0.9f);
     glColor4f(0.15f,0.05f,0.1f,0.8f);
     glBegin(GL_QUADS); glVertex2f(bx,by); glVertex2f(bx+bw,by); glVertex2f(bx+bw,by+10.0f); glVertex2f(bx,by+10.0f); glEnd();
     glColor4f(1.0f,0.3f,0.45f,0.95f);
@@ -110,7 +110,7 @@ static void oc_render_hud(int w,int h){
     draw_text((float)w-text_w(kb,1.6f)-20.0f,50.0f,1.6f,kb,0.6f,0.95f,1.0f,0.8f); }
   /* 보스 HP 바 */
   if(g_boss.active){ float bw=380.0f, bx=((float)w-bw)*0.5f, by=34.0f, fr2=g_boss.hp/g_boss.maxhp; if(fr2<0.0f)fr2=0.0f;
-    center_text(w,64.0f,1.4f,g_boss.type==0?"SUBCORE - THE CORE":(g_boss.type==2?"SUBCORE - THE NEXUS":"SUBCORE - THE WARDEN"),1.0f,0.4f,0.5f,0.9f);
+    center_text(w,64.0f,1.4f,g_boss.type==0?"SUBCORE - THE CORE":(g_boss.type==2?"SUBCORE - THE NEXUS":(g_boss.type==3?"SUBCORE - THE PULSAR":"SUBCORE - THE WARDEN")),1.0f,0.4f,0.5f,0.9f);
     glColor4f(0.15f,0.05f,0.1f,0.8f); glBegin(GL_QUADS); glVertex2f(bx,by); glVertex2f(bx+bw,by); glVertex2f(bx+bw,by+9.0f); glVertex2f(bx,by+9.0f); glEnd();
     glColor4f(1.0f,0.3f,0.45f,0.95f); glBegin(GL_QUADS); glVertex2f(bx,by); glVertex2f(bx+bw*fr2,by); glVertex2f(bx+bw*fr2,by+9.0f); glVertex2f(bx,by+9.0f); glEnd(); }
   draw_hurt_vignette(w,h);

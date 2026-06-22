@@ -371,7 +371,7 @@ static void render_world(int w,int h){
   if(g_boss.active){
     Boss*B=&g_boss; float br=boss_radius(); int ph=B->phase;
     float fr,fg,fb;
-    if(B->type==0){ fr=1.0f; fg=0.35f; fb=0.6f; } else if(B->type==2){ fr=0.5f; fg=1.0f; fb=0.8f; } else { fr=1.0f; fg=0.55f; fb=0.2f; }
+    if(B->type==0){ fr=1.0f; fg=0.35f; fb=0.6f; } else if(B->type==2){ fr=0.5f; fg=1.0f; fb=0.8f; } else if(B->type==3){ fr=1.0f; fg=0.92f; fb=0.4f; } else { fr=1.0f; fg=0.55f; fb=0.2f; }
     if(ph==3){ float fl2=0.5f+0.5f*f_sin(g_time*10.0f); fr=1.0f; fg=0.15f+0.25f*fl2; fb=0.15f; }
     if(B->flash>0.0f){ fr=1.0f; fg=1.0f; fb=1.0f; }
     if(B->type==0){ /* CORE: 페이즈 밴드 맥동 구체 */
@@ -465,6 +465,16 @@ static void render_world(int w,int h){
         diamond_fill(nx3[kk2],ny3[kk2],18.0f*ps,fr,fg,fb,0.25f);
         diamond_fill(nx3[kk2],ny3[kk2],11.0f*ps,fr,fg,fb,0.95f);
         diamond_fill(nx3[kk2],ny3[kk2],4.0f,1.0f,1.0f,1.0f,0.9f); }
+    } else if(B->type==3){ /* PULSAR: 일렉트릭 코어 + 동심링 + 역회전 나선 팔 4개 (v2.0) */
+      int k3; float pr=br*(1.0f+0.05f*f_sin(g_time*6.0f));
+      circle_fill(B->pos.x,B->pos.y,pr*1.7f,24,fr,fg,fb,0.12f);
+      glColor4f(fr,fg,fb,0.4f); circle_line(B->pos.x,B->pos.y,pr*1.3f,24);
+      glColor4f(fr,fg,fb,0.6f); circle_line(B->pos.x,B->pos.y,pr*0.9f,24);
+      circle_fill(B->pos.x,B->pos.y,pr*0.55f,18,fr,fg,fb,0.9f);
+      circle_fill(B->pos.x,B->pos.y,pr*0.25f,12,1.0f,1.0f,1.0f,0.95f);
+      for(k3=0;k3<4;k3++){ int tt; float base=-B->segAng*2.2f+(float)k3*1.5707963f; /* 역회전 나선 팔 */
+        for(tt=0;tt<8;tt++){ float rr=pr*0.6f+(float)tt*pr*0.20f, a=base+(float)tt*0.34f;
+          diamond_fill(B->pos.x+f_cos(a)*rr,B->pos.y+f_sin(a)*rr,7.0f-(float)tt*0.6f,fr,fg,fb,0.8f-(float)tt*0.07f); } }
     }
   }
 

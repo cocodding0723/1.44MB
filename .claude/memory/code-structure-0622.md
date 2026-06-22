@@ -29,5 +29,7 @@ metadata:
 - **OC 무기 SHOCKWAVE/SCATTER(v1.7)**: g_weapMeta 1행+거동 블록, 나머지 WEAPN 순회 자동. 펄스=spawn_ring/탄막=spawn_minib 재활용(전용 렌더 불필요).
 - 각 신규 콘텐츠: 임시 해금/부여 낮춰 양 모드 스폰·동작 검증 후 정상 복원 → code-reviewer-game(CRIT/HIGH 0) → 문서(DESIGN §26·검사기준·CONFIRMATIONS) 동기화.
 
+- **신규 보스 추가(PULSAR, type3, v2.0)**: 6개 통합 지점 — boss_update `else if(type==3)` AI(spawn_ebul 패턴), nd_render boss 색+렌더 분기, boss_radius, oc_boss_waves 순환, g_xmitBoss[] 확장, HUD 보스명. **동결 DESCENT 격리 핵심**: DESCENT 보스는 `nd_combat.inc (kk-1)%3` 그대로 두고 OC만 `%4`로 → PULSAR는 OC 전용(DESCENT 보스방·g_finalBoss 엔딩 미접촉, boss_die OC return이 엔딩 분기보다 선행). **g_xmitBoss[type] 인덱스 = 보스타입 → 보스 추가 시 배열 확장 필수**(OOB 주의).
+
 ## 검증
-리팩토링: 원본 game.c vs 분할 = exe 동일. enemy_update 추출 byte-identical(110,080). 콘텐츠 누적: 110,080→114,176(+4,096B, 캡 7.7%, GREEN). 양 모드·전 화면·신규 콘텐츠 안정성 확인. QA 패스(WARDEN 8→12px/s 추적성 수정).
+리팩토링: 원본 game.c vs 분할 = exe 동일. enemy_update 추출 byte-identical(110,080). 콘텐츠 누적: 110,080→115,712(+5,632B, 캡 7.85%, GREEN). 양 모드·전 화면·신규 콘텐츠 안정성 확인. QA 통합 패스(CRIT/HIGH 0). 신규 보스 동결 DESCENT 격리 검증.

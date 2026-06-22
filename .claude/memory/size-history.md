@@ -187,6 +187,8 @@ HARD_CAP 1,474,560 bytes | TARGET 65,536 | WARN 49,152 | HARD_WARN 1,179,648
 | 2026-06-22 | 신규 OC 무기 SHOCKWAVE (v1.7) | 112640 | 7.64% | 171.88% | ORANGE |
 | 2026-06-22 | 신규 OC 무기 SCATTER (v1.7) | 113152 | 7.67% | 172.66% | ORANGE |
 | 2026-06-22 | 신규 적 HIVE (type8 소환 노드, v1.8) | 114176 | 7.74% | 174.22% | ORANGE |
+| 2026-06-22 | 레어 모듈 SHRAPNEL (v1.9) + draw3 방어 | 114176 | 7.74% | 174.22% | ORANGE |
+| 2026-06-23 | 신규 보스 THE PULSAR (OC 전용 type3, v2.0) | 115712 | 7.85% | 176.56% | ORANGE |
 
 > 2026-06-22 세션 요약: 도메인 분할 리팩토링(동작 불변) + 확장성 테이블화(적/무기 메타) 후
 > 신규 콘텐츠 6종(적 PHANTOM, 모듈 CRYO/EXECUTE/PHASE EDGE, 무기 SHOCKWAVE/SCATTER) 추가.

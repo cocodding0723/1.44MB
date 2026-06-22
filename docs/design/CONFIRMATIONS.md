@@ -98,3 +98,13 @@
 | 적 HIVE 룩/거동 | v1 | ✅승인 | 2026-06-22 | [enemy-hive-v1.png](enemy-hive-v1.png) — 회전 헥스 노드+맥동 출산 코어(부패 러스트 오렌지-레드), 느리고 단단함, 3s마다 SHARD(type4) 잡몹 1 방출(적 수<80 캡). HP36·속도45·반경16, DESCENT L8+/OC t120+. **사용자 승인 → 구현 완료(type 8, v1.8, 114,176B)** |
 
 > 사용자 승인(2026-06-22): "승인 — HIVE 구현 진행". 양 모드 스폰·소환 AI·헥스 렌더 안정성 확인. code-reviewer-game CRIT/HIGH 0(배열 경계·소환 캡·결정론 검증).
+
+## B-NEW 신규 보스 THE PULSAR (2026-06-22, v2.0 — OVERCLOCK 전용, 구현 전 컨펌 게이트)
+
+> 4번째 보스 = 방사 탄막(bullet-hell) 리액터. 기존 3보스(CORE 레이저/WARDEN 압축/NEXUS 노드)에 없는 패턴형. **OVERCLOCK 보스 웨이브 전용**(동결 DESCENT 로테이션·최종보스-엔딩 로직 불변). 새 실루엣이라 rules/50 컨펌 후 구현.
+
+| 요소 | 버전 | 상태 | 날짜 | 메모 |
+|---|---|---|---|---|
+| 보스 PULSAR 룩/거동 | v1 | ✅승인 | 2026-06-22 | [boss-pulsar-v1.png](boss-pulsar-v1.png) — 일렉트릭 옐로 코어+동심링+역회전 나선 팔 4개. P1 확장 탄환 링→P2 +나선 팔 발사→P3(격노) 이중 링·고속. spawn_ebul 재활용. OC 보스타입 3, DESCENT 미등장. **사용자 승인 → 구현 완료(v2.0, 115,712B)** |
+
+> 사용자 승인(2026-06-22): "승인 — PULSAR 구현 진행". code-reviewer-game CRIT/HIGH 0 — **동결 DESCENT 보스 로테이션(%3)·최종보스-엔딩 격리 구조적 확인**(OC %4 전용, boss_die OC return이 엔딩 분기보다 선행). P3 탄밀도 실기기 플레이테스트 권장.
