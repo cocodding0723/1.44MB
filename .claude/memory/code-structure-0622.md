@@ -19,7 +19,7 @@ metadata:
 - `nd_screens.inc`(352): render_hud·oc_render_hud·dim/post·codex/ending/title/gameover/pause/upgrade
 
 ## 확장 가이드 (어디를 고치나)
-- **적 추가**: `nd_data.inc`의 `g_eneStat[]`에 한 줄(r/spd/hp/색) + AI는 combat_update 적 루프에 분기 + draw_enemy/batched 렌더 분기 + pick_enemy_type 해금. (스탯 4함수 흩어짐 → 테이블 단일화 완료.)
+- **적 추가**: `nd_data.inc`의 `g_eneStat[]`에 한 줄(r/spd/hp/색) + AI는 `nd_combat.inc`의 `enemy_update(i,dt)` 함수 내 타입 분기 + draw_enemy/batched 렌더 분기 + pick_enemy_type 해금. (스탯 4함수 흩어짐→테이블 단일화. 적 AI는 combat_update에서 enemy_update로 분리.)
 - **OVERCLOCK 무기 추가**: `nd_data.inc` W_* 매크로+WEAPN++·**`g_weapMeta[]` 테이블 한 줄**(name/desc/evoReq 통합), `nd_entity.inc` oc_weapons_update 거동 블록·oc_draft 후보, `nd_render.inc` 시각화 블록. (메타 3배열→단일 WeapMeta 테이블, +512B.)
 - **모듈 추가**: g_modName/Desc/g_modW 배열(이미 테이블) + apply_mod/combat 효과.
 

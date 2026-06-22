@@ -1,3 +1,102 @@
+/* 적 1체 AI·이동·접촉 (combat_update 적 루프 본문 추출 — 동작 동일, 적 추가 시 타입 분기만) */
+static void enemy_update(int i, float dt){
+  int j; Enemy*e=&g_ene[i];
+    if(e->spawn>0.0f){ e->spawn-=dt; return; } /* 스폰 텔레그래프 중 */
+    if(e->flash>0.0f) e->flash-=dt;
+    float r=ene_radius(e->type), spd=ene_speed(e->type);
+    if(e->affix&2) spd*=1.4f; /* 신속 (Swift) */
+    float dx=g_player.pos.x-e->pos.x, dy=g_player.pos.y-e->pos.y, dist=f_sqrt(dx*dx+dy*dy); if(dist<0.01f)dist=0.01f;
+    if(g_mod[M_MAGNET]){ float ar=80.0f+20.0f*(float)g_mod[M_MAGNET]; if(dist<ar) spd*=0.72f; } /* 자력 소형 감속 오라 (§7) */
+    e->t+=dt;
+    /* 어픽스 타이머: 보호막 재충전 1.5s / 자가분열 4s */
+    if((e->affix&1)&&!e->eshield){ e->at+=dt; if(e->at>=1.5f) e->eshield=1; }
+    if(e->affix&8){ e->at2+=dt;
+      if(e->at2>=4.0f){ e->at2=0;
+        int na=0; for(j=0;j<MAXENE;j++) if(g_ene[j].active) na++;
+        if(na<64){ int ci=spawn_enemy(e->type,e->pos.x+rndsym()*30.0f,e->pos.y+rndsym()*30.0f,0);
+          if(ci>=0) g_ene[ci].hp*=0.5f; }
+      } }
+    if(e->affix&16){ /* 자성 (Magnetic): 플레이어 흡인 오라 */
+      if(dist<260.0f){ g_player.vel.x-=dx/dist*140.0f*dt; g_player.vel.y-=dy/dist*140.0f*dt; }
+    }
+    /* 넉백 감쇠 */
+    float kx=e->kvel.x, ky=e->kvel.y;
+    e->kvel.x-=e->kvel.x*9.0f*dt; e->kvel.y-=e->kvel.y*9.0f*dt;
+    if(e->type==0||e->type==3||e->type==4){ /* 헌터/포크/샤드: 추격 (+헌터 동족 분리) */
+      float sx=0,sy=0;
+      if(e->type==0) for(j=0;j<MAXENE;j++){ if(j==i||!g_ene[j].active||g_ene[j].type!=0) continue;
+        float ox=e->pos.x-g_ene[j].pos.x, oy=e->pos.y-g_ene[j].pos.y, od2=ox*ox+oy*oy;
+        if(od2<900.0f&&od2>0.01f){ float od=f_sqrt(od2); sx+=ox/od; sy+=oy/od; } }
+      float vx=dx/dist*spd+sx*60.0f+kx, vy=dy/dist*spd+sy*60.0f+ky;
+      float nx=e->pos.x+vx*dt, ex2=nx+(vx>0?r:-r);
+      if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx;
+      float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
+      if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny;
+    } else if(e->type==1){ /* 터릿: 거리유지 + 발사(0.3s 텔레그래프) */
+      float dir=0.0f; if(dist<300.0f) dir=-1.0f; else if(dist>340.0f) dir=1.0f;
+      float vx=dx/dist*spd*dir+kx, vy=dy/dist*spd*dir+ky;
+      float nx=e->pos.x+vx*dt, ex2=nx+(vx>0?r:-r);
+      if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx;
+      float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
+      if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny;
+      e->t2+=dt;
+      float fireInt=(e->affix&2)?1.14f:1.6f; /* 신속: 공속 +40% */
+      if(e->t2>=fireInt){ e->t2=0.0f;
+        for(j=0;j<MAXEBUL;j++) if(!g_ebul[j].active){ g_ebul[j].active=1; g_ebul[j].pos=e->pos; g_ebul[j].vel.x=dx/dist*EBUL_SPEED; g_ebul[j].vel.y=dy/dist*EBUL_SPEED; g_ebul[j].life=2.5f; break; }
+      }
+    } else if(e->type==5){ /* LANCER: 텔레그래프 돌진 스트라이커 */
+      float sm=(e->affix&2)?0.7f:1.0f, t2=e->t2/sm;
+      e->t2+=dt;
+      if(t2<1.1f){ /* 스토크: 거리유지 측면 슬라이드 + 돌진방향 상시 조준 */
+        e->vel.x=dx/dist*520.0f; e->vel.y=dy/dist*520.0f;
+        float px=-dy/dist, py=dx/dist, dir=dist<180.0f?-0.5f:(dist>250.0f?0.7f:0.0f);
+        float vx=(dx/dist*dir+px*0.7f)*spd+kx, vy=(dy/dist*dir+py*0.7f)*spd+ky;
+        float nx=e->pos.x+vx*dt, ex2=nx+(vx>0?r:-r);
+        if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx;
+        float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
+        if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny;
+      } else if(t2<1.45f){ /* 돌진: 520px/s + 벽 1회 반사 (코너 진동 방지: ±0.6r 2점) */
+        float nx=e->pos.x+e->vel.x*dt, ex2=nx+(e->vel.x>0?r:-r);
+        if(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f)) e->vel.x=-e->vel.x; else e->pos.x=nx;
+        float ny=e->pos.y+e->vel.y*dt, ey2=ny+(e->vel.y>0?r:-r);
+        if(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2)) e->vel.y=-e->vel.y; else e->pos.y=ny;
+      } else if(t2<1.95f){ e->vel.x*=0.86f; e->vel.y*=0.86f; e->pos.x+=e->vel.x*dt; e->pos.y+=e->vel.y*dt; }
+      else { e->t2=0.0f; }
+    } else if(e->type==6){ /* WEAVER: 궤도 비행 + 기뢰 설치 (g_boom 재활용) */
+      float px=-dy/dist, py=dx/dist, dir=dist<220.0f?1.0f:(dist>300.0f?-1.0f:0.0f);
+      float vx=(dx/dist*dir+px)*spd+kx, vy=(dy/dist*dir+py)*spd+ky;
+      float nx=e->pos.x+vx*dt, ex2=nx+(vx>0?r:-r);
+      if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx; else e->kvel.x*=0.3f; /* 벽 스터터 억제 */
+      float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
+      if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny; else e->kvel.y*=0.3f;
+      e->t2+=dt;
+      float dropInt=(e->affix&2)?1.6f:2.3f;
+      if(e->t2>=dropInt){ e->t2=0.0f; int q; for(q=0;q<MAXBOOM;q++) if(!g_boom[q].active){
+        g_boom[q].active=1; g_boom[q].pos=e->pos; g_boom[q].t=g_boom[q].t0=1.4f;
+        spawn_ring(e->pos.x,e->pos.y,10.0f,260.0f,0.25f,1.0f,0.4f,0.2f); break; } }
+    } else if(e->type==2){ /* 리코셰: 직선+반사, 1.5s 방향 재설정 */
+      if(e->t>=1.5f){ e->t=0.0f; float rx=rndsym(), ry=rndsym();
+        if((xrnd()%100)<30){ rx=dx/dist; ry=dy/dist; }
+        float l=f_sqrt(rx*rx+ry*ry); if(l<0.01f)l=1.0f; e->vel.x=rx/l*spd; e->vel.y=ry/l*spd; }
+      float nx=e->pos.x+(e->vel.x+kx)*dt, ex2=nx+(e->vel.x>0?r:-r);
+      if(is_wall_w(ex2,e->pos.y)) e->vel.x=-e->vel.x; else e->pos.x=nx;
+      float ny=e->pos.y+(e->vel.y+ky)*dt, ey2=ny+(e->vel.y>0?r:-r);
+      if(is_wall_w(e->pos.x,ey2)) e->vel.y=-e->vel.y; else e->pos.y=ny;
+    }
+    /* 접촉 데미지 (+ 가시 모듈: 접촉 적 반격) */
+    float cr=r+g_player.radius;
+    if(dx*dx+dy*dy<cr*cr){
+      if(g_mod[M_THORNS]&&g_thornT<=0.0f){
+        g_thornT=0.25f;
+        e->hp-=15.0f*(float)g_mod[M_THORNS]; e->flash=0.07f;
+        e->kvel.x-=dx/dist*260.0f; e->kvel.y-=dy/dist*260.0f;
+        burst(e->pos.x,e->pos.y,6,170.0f,0.4f,1.0f,0.6f);
+        if(e->hp<=0.0f){ kill_enemy(i); return; }
+      }
+      hurt_player(1.0f);
+    }
+}
+
 static void combat_update(float dt){
   int i,j;
   g_time+=dt;
@@ -194,102 +293,7 @@ static void combat_update(float dt){
   }
 
   /* 적 AI */
-  for(i=0;i<MAXENE;i++){ if(!g_ene[i].active) continue; Enemy*e=&g_ene[i];
-    if(e->spawn>0.0f){ e->spawn-=dt; continue; } /* 스폰 텔레그래프 중 */
-    if(e->flash>0.0f) e->flash-=dt;
-    float r=ene_radius(e->type), spd=ene_speed(e->type);
-    if(e->affix&2) spd*=1.4f; /* 신속 (Swift) */
-    float dx=g_player.pos.x-e->pos.x, dy=g_player.pos.y-e->pos.y, dist=f_sqrt(dx*dx+dy*dy); if(dist<0.01f)dist=0.01f;
-    if(g_mod[M_MAGNET]){ float ar=80.0f+20.0f*(float)g_mod[M_MAGNET]; if(dist<ar) spd*=0.72f; } /* 자력 소형 감속 오라 (§7) */
-    e->t+=dt;
-    /* 어픽스 타이머: 보호막 재충전 1.5s / 자가분열 4s */
-    if((e->affix&1)&&!e->eshield){ e->at+=dt; if(e->at>=1.5f) e->eshield=1; }
-    if(e->affix&8){ e->at2+=dt;
-      if(e->at2>=4.0f){ e->at2=0;
-        int na=0; for(j=0;j<MAXENE;j++) if(g_ene[j].active) na++;
-        if(na<64){ int ci=spawn_enemy(e->type,e->pos.x+rndsym()*30.0f,e->pos.y+rndsym()*30.0f,0);
-          if(ci>=0) g_ene[ci].hp*=0.5f; }
-      } }
-    if(e->affix&16){ /* 자성 (Magnetic): 플레이어 흡인 오라 */
-      if(dist<260.0f){ g_player.vel.x-=dx/dist*140.0f*dt; g_player.vel.y-=dy/dist*140.0f*dt; }
-    }
-    /* 넉백 감쇠 */
-    float kx=e->kvel.x, ky=e->kvel.y;
-    e->kvel.x-=e->kvel.x*9.0f*dt; e->kvel.y-=e->kvel.y*9.0f*dt;
-    if(e->type==0||e->type==3||e->type==4){ /* 헌터/포크/샤드: 추격 (+헌터 동족 분리) */
-      float sx=0,sy=0;
-      if(e->type==0) for(j=0;j<MAXENE;j++){ if(j==i||!g_ene[j].active||g_ene[j].type!=0) continue;
-        float ox=e->pos.x-g_ene[j].pos.x, oy=e->pos.y-g_ene[j].pos.y, od2=ox*ox+oy*oy;
-        if(od2<900.0f&&od2>0.01f){ float od=f_sqrt(od2); sx+=ox/od; sy+=oy/od; } }
-      float vx=dx/dist*spd+sx*60.0f+kx, vy=dy/dist*spd+sy*60.0f+ky;
-      float nx=e->pos.x+vx*dt, ex2=nx+(vx>0?r:-r);
-      if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx;
-      float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
-      if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny;
-    } else if(e->type==1){ /* 터릿: 거리유지 + 발사(0.3s 텔레그래프) */
-      float dir=0.0f; if(dist<300.0f) dir=-1.0f; else if(dist>340.0f) dir=1.0f;
-      float vx=dx/dist*spd*dir+kx, vy=dy/dist*spd*dir+ky;
-      float nx=e->pos.x+vx*dt, ex2=nx+(vx>0?r:-r);
-      if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx;
-      float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
-      if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny;
-      e->t2+=dt;
-      float fireInt=(e->affix&2)?1.14f:1.6f; /* 신속: 공속 +40% */
-      if(e->t2>=fireInt){ e->t2=0.0f;
-        for(j=0;j<MAXEBUL;j++) if(!g_ebul[j].active){ g_ebul[j].active=1; g_ebul[j].pos=e->pos; g_ebul[j].vel.x=dx/dist*EBUL_SPEED; g_ebul[j].vel.y=dy/dist*EBUL_SPEED; g_ebul[j].life=2.5f; break; }
-      }
-    } else if(e->type==5){ /* LANCER: 텔레그래프 돌진 스트라이커 */
-      float sm=(e->affix&2)?0.7f:1.0f, t2=e->t2/sm;
-      e->t2+=dt;
-      if(t2<1.1f){ /* 스토크: 거리유지 측면 슬라이드 + 돌진방향 상시 조준 */
-        e->vel.x=dx/dist*520.0f; e->vel.y=dy/dist*520.0f;
-        float px=-dy/dist, py=dx/dist, dir=dist<180.0f?-0.5f:(dist>250.0f?0.7f:0.0f);
-        float vx=(dx/dist*dir+px*0.7f)*spd+kx, vy=(dy/dist*dir+py*0.7f)*spd+ky;
-        float nx=e->pos.x+vx*dt, ex2=nx+(vx>0?r:-r);
-        if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx;
-        float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
-        if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny;
-      } else if(t2<1.45f){ /* 돌진: 520px/s + 벽 1회 반사 (코너 진동 방지: ±0.6r 2점) */
-        float nx=e->pos.x+e->vel.x*dt, ex2=nx+(e->vel.x>0?r:-r);
-        if(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f)) e->vel.x=-e->vel.x; else e->pos.x=nx;
-        float ny=e->pos.y+e->vel.y*dt, ey2=ny+(e->vel.y>0?r:-r);
-        if(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2)) e->vel.y=-e->vel.y; else e->pos.y=ny;
-      } else if(t2<1.95f){ e->vel.x*=0.86f; e->vel.y*=0.86f; e->pos.x+=e->vel.x*dt; e->pos.y+=e->vel.y*dt; }
-      else { e->t2=0.0f; }
-    } else if(e->type==6){ /* WEAVER: 궤도 비행 + 기뢰 설치 (g_boom 재활용) */
-      float px=-dy/dist, py=dx/dist, dir=dist<220.0f?1.0f:(dist>300.0f?-1.0f:0.0f);
-      float vx=(dx/dist*dir+px)*spd+kx, vy=(dy/dist*dir+py)*spd+ky;
-      float nx=e->pos.x+vx*dt, ex2=nx+(vx>0?r:-r);
-      if(!(is_wall_w(ex2,e->pos.y-r*0.6f)||is_wall_w(ex2,e->pos.y+r*0.6f))) e->pos.x=nx; else e->kvel.x*=0.3f; /* 벽 스터터 억제 */
-      float ny=e->pos.y+vy*dt, ey2=ny+(vy>0?r:-r);
-      if(!(is_wall_w(e->pos.x-r*0.6f,ey2)||is_wall_w(e->pos.x+r*0.6f,ey2))) e->pos.y=ny; else e->kvel.y*=0.3f;
-      e->t2+=dt;
-      float dropInt=(e->affix&2)?1.6f:2.3f;
-      if(e->t2>=dropInt){ e->t2=0.0f; int q; for(q=0;q<MAXBOOM;q++) if(!g_boom[q].active){
-        g_boom[q].active=1; g_boom[q].pos=e->pos; g_boom[q].t=g_boom[q].t0=1.4f;
-        spawn_ring(e->pos.x,e->pos.y,10.0f,260.0f,0.25f,1.0f,0.4f,0.2f); break; } }
-    } else if(e->type==2){ /* 리코셰: 직선+반사, 1.5s 방향 재설정 */
-      if(e->t>=1.5f){ e->t=0.0f; float rx=rndsym(), ry=rndsym();
-        if((xrnd()%100)<30){ rx=dx/dist; ry=dy/dist; }
-        float l=f_sqrt(rx*rx+ry*ry); if(l<0.01f)l=1.0f; e->vel.x=rx/l*spd; e->vel.y=ry/l*spd; }
-      float nx=e->pos.x+(e->vel.x+kx)*dt, ex2=nx+(e->vel.x>0?r:-r);
-      if(is_wall_w(ex2,e->pos.y)) e->vel.x=-e->vel.x; else e->pos.x=nx;
-      float ny=e->pos.y+(e->vel.y+ky)*dt, ey2=ny+(e->vel.y>0?r:-r);
-      if(is_wall_w(e->pos.x,ey2)) e->vel.y=-e->vel.y; else e->pos.y=ny;
-    }
-    /* 접촉 데미지 (+ 가시 모듈: 접촉 적 반격) */
-    float cr=r+g_player.radius;
-    if(dx*dx+dy*dy<cr*cr){
-      if(g_mod[M_THORNS]&&g_thornT<=0.0f){
-        g_thornT=0.25f;
-        e->hp-=15.0f*(float)g_mod[M_THORNS]; e->flash=0.07f;
-        e->kvel.x-=dx/dist*260.0f; e->kvel.y-=dy/dist*260.0f;
-        burst(e->pos.x,e->pos.y,6,170.0f,0.4f,1.0f,0.6f);
-        if(e->hp<=0.0f){ kill_enemy(i); continue; }
-      }
-      hurt_player(1.0f);
-    }
-  }
+  for(i=0;i<MAXENE;i++){ if(!g_ene[i].active) continue; enemy_update(i,dt); }
 
   /* 보스 (§9) */
   boss_update(dt);
