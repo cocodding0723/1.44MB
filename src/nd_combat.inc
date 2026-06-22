@@ -102,6 +102,11 @@ static void enemy_update(int i, float dt){
     /* 접촉 데미지 (+ 가시 모듈: 접촉 적 반격) */
     float cr=r+g_player.radius;
     if(dx*dx+dy*dy<cr*cr){
+      if(g_dashT>0.0f && g_mod[M_DASHEDGE]){ /* 페이즈 엣지(레어): 대시 관통 데미지 + 밀어내기 */
+        e->hp-=300.0f*(float)g_mod[M_DASHEDGE]*dt; e->flash=0.07f;
+        e->kvel.x-=dx/dist*200.0f; e->kvel.y-=dy/dist*200.0f;
+        if(e->hp<=0.0f){ kill_enemy(i); return; }
+      }
       if(g_mod[M_THORNS]&&g_thornT<=0.0f){
         g_thornT=0.25f;
         e->hp-=15.0f*(float)g_mod[M_THORNS]; e->flash=0.07f;
