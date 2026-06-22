@@ -21,7 +21,7 @@ metadata:
 ## 확장 가이드 (어디를 고치나)
 - **적 추가**: `nd_data.inc`의 `g_eneStat[]`에 한 줄(r/spd/hp/색) + AI는 `nd_combat.inc`의 `enemy_update(i,dt)` 함수 내 타입 분기 + draw_enemy/batched 렌더 분기 + pick_enemy_type 해금. (스탯 4함수 흩어짐→테이블 단일화. 적 AI는 combat_update에서 enemy_update로 분리.)
 - **OVERCLOCK 무기 추가**: `nd_data.inc` W_* 매크로+WEAPN++·**`g_weapMeta[]` 테이블 한 줄**(name/desc/evoReq 통합), `nd_entity.inc` oc_weapons_update 거동 블록·oc_draft 후보, `nd_render.inc` 시각화 블록. (메타 3배열→단일 WeapMeta 테이블, +512B.)
-- **모듈 추가**: g_modName/Desc/g_modW 배열(이미 테이블) + apply_mod/combat 효과.
+- **모듈 추가**: nd_data.inc M_* enum + g_modName/Desc[MODN] 배열 + combat 효과(g_mod[M_X] 체크). **커먼은 인덱스 0~17(MOD_COMMON) 연속**(g_modW 가중치 있음), **레어는 끝에 append**(18~MODN, 가중 균등 10·draw3 레어분기). draw3 레어개수=MODN-MOD_COMMON. 즉시효과는 apply_mod 분기. 레어 과중첩 캡은 draw3 레어분기에. (v1.6 CRYO/EXECUTE가 레어 append 예시.)
 
 ## 신규 콘텐츠 (확장 구조 첫 활용)
 - **PHANTOM (적 type 7, v1.5, 2026-06-22)**: 순간이동 교란 적. 위 "적 추가" 플로우대로 g_eneStat[8] 1행 + enemy_update 분기 + draw_enemy 분기(배칭은 다이아 폴백) + pick_enemy_type(L7)/oc_pick_type(t180). rules/50 목업 승인 후 구현. +1KB(111,104B). 임시 해금 낮춰 양 모드 스폰 검증 후 정상 복원.

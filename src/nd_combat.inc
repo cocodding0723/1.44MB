@@ -7,6 +7,7 @@ static void enemy_update(int i, float dt){
     if(e->affix&2) spd*=1.4f; /* 신속 (Swift) */
     float dx=g_player.pos.x-e->pos.x, dy=g_player.pos.y-e->pos.y, dist=f_sqrt(dx*dx+dy*dy); if(dist<0.01f)dist=0.01f;
     if(g_mod[M_MAGNET]){ float ar=80.0f+20.0f*(float)g_mod[M_MAGNET]; if(dist<ar) spd*=0.72f; } /* 자력 소형 감속 오라 (§7) */
+    if(e->slowT>0.0f){ e->slowT-=dt; spd*=0.5f; } /* 냉기탄(M_CRYO) 둔화: 속도 50% */
     e->t+=dt;
     /* 어픽스 타이머: 보호막 재충전 1.5s / 자가분열 4s */
     if((e->affix&1)&&!e->eshield){ e->at+=dt; if(e->at>=1.5f) e->eshield=1; }
@@ -272,6 +273,8 @@ static void combat_update(float dt){
           snd_play(SFX_HIT); b->active=0; break;
         }
         e->hp-=b->dmg; e->flash=0.07f;
+        if(g_mod[M_CRYO]) e->slowT=0.5f+0.3f*(float)g_mod[M_CRYO]; /* 냉기탄(레어): 피격 적 둔화 */
+        if(g_mod[M_EXECUTE]&&e->hp>0.0f&&e->hp<e->maxhp*(0.10f+0.04f*(float)g_mod[M_EXECUTE])) e->hp=0.0f; /* 처형(레어): 저HP 적 즉사 */
         e->kvel.x+=b->vel.x/bl*130.0f; e->kvel.y+=b->vel.y/bl*130.0f; /* 넉백 임펄스 */
         burst(b->pos.x,b->pos.y,5,180.0f,1.0f,1.0f,1.0f);
         snd_play(SFX_HIT);

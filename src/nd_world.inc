@@ -189,7 +189,7 @@ static void new_run(void){
 static int spawn_enemy(int type,float x,float y,int allowElite){
   int i; for(i=0;i<MAXENE;i++) if(!g_ene[i].active){ Enemy*e=&g_ene[i];
     e->active=1; e->type=(unsigned char)type; e->pos.x=x; e->pos.y=y; e->vel.x=0; e->vel.y=0; e->kvel.x=0; e->kvel.y=0;
-    e->t=0; e->t2=0; e->flash=0; e->spawn=0.4f; e->at=0; e->at2=0; e->affix=0; e->eshield=0;
+    e->t=0; e->t2=0; e->flash=0; e->spawn=0.4f; e->at=0; e->at2=0; e->affix=0; e->eshield=0; e->slowT=0;
     float hpsc=1.0f+0.18f*(float)(g_depth-1);
     e->hp=g_eneStat[type].hp*hpsc; /* HP 단일 출처(g_eneStat) */
     if(type==2){ float dx=rndsym(), dy=rndsym(), l=f_sqrt(dx*dx+dy*dy); if(l<0.01f)l=1.0f; float sp=ene_speed(2); e->vel.x=dx/l*sp; e->vel.y=dy/l*sp; } /* 리코셰 초기 방향 */

@@ -194,13 +194,15 @@ static int g_state=ST_TITLE;
 #define M_HEART 23
 #define M_GLASSCANNON 24
 #define M_CHAINLIGHT 25
-#define MODN 26
+#define M_CRYO 26
+#define M_EXECUTE 27
+#define MODN 28
 #define MOD_COMMON 18
 static int g_mod[MODN];
 static int g_upgSel[3], g_upgRare, g_shotCount, g_leechKills, g_shieldUp, g_siphonK;
 static float g_regenT, g_shieldT, g_thornT, g_slowT, g_slowAcc, g_frenzy;
-static const char* g_modName[MODN]={"POWER","RAPID","AGILITY","MULTISHOT","PIERCE","HOMING","LEECH","EXPLOSIVE","RICOCHET","COOLANT","THORNS","CRITICAL","SWIFT SHOT","MAGNET","VENGEANCE","KINETIC","FRENZY","SIPHON","SPLITSHOT","TIMEWARP","OVERLOAD","REGEN","AEGIS","EXTRA CORE","GLASS CANNON","ARC CHAIN"};
-static const char* g_modDesc[MODN]={"DMG +25","FIRE RATE +20","MOVE SPD +12","SHOT +1","PIERCE +1","SEEK TARGETS","KILLS HEAL HP","HITS EXPLODE","WALL BOUNCE +2","DASH CD -25","CONTACT DMG","CRIT +15","BULLET SPD +30","PICKUP RANGE UP","LOW HP = DMG","SPD = DMG","HOLD RAMPS ROF","KILLS DROP BITS","HITS SPLIT 2","HURT SLOWMO","10TH SHOT X4","HP OVER TIME","BLOCK SHIELD","MAX HP +2 HEAL","+60% DMG RISK","HIT ARCS DMG"};
+static const char* g_modName[MODN]={"POWER","RAPID","AGILITY","MULTISHOT","PIERCE","HOMING","LEECH","EXPLOSIVE","RICOCHET","COOLANT","THORNS","CRITICAL","SWIFT SHOT","MAGNET","VENGEANCE","KINETIC","FRENZY","SIPHON","SPLITSHOT","TIMEWARP","OVERLOAD","REGEN","AEGIS","EXTRA CORE","GLASS CANNON","ARC CHAIN","CRYO ROUNDS","EXECUTE"};
+static const char* g_modDesc[MODN]={"DMG +25","FIRE RATE +20","MOVE SPD +12","SHOT +1","PIERCE +1","SEEK TARGETS","KILLS HEAL HP","HITS EXPLODE","WALL BOUNCE +2","DASH CD -25","CONTACT DMG","CRIT +15","BULLET SPD +30","PICKUP RANGE UP","LOW HP = DMG","SPD = DMG","HOLD RAMPS ROF","KILLS DROP BITS","HITS SPLIT 2","HURT SLOWMO","10TH SHOT X4","HP OVER TIME","BLOCK SHIELD","MAX HP +2 HEAL","+60% DMG RISK","HIT ARCS DMG","HITS SLOW FOES","LOW HP = LETHAL"};
 static const unsigned char g_modW[MOD_COMMON]={10,10,10,7,8,6,7,6,6,7,7,8,8,7,7,8,7,7};
 static int mod_capped(int m){
   if(m==M_MULTI) return g_mod[m]>=6;
@@ -214,7 +216,7 @@ static void draw3(int rare){ /* 시너지 가중 추첨 (§7), 슬롯 간 중복
   int k,i;
   g_upgSel[0]=g_upgSel[1]=g_upgSel[2]=-1;
   for(k=0;k<3;k++){
-    int w[MOD_COMMON], total=0, n=rare?8:MOD_COMMON;
+    int w[MOD_COMMON], total=0, n=rare?(MODN-MOD_COMMON):MOD_COMMON;
     for(i=0;i<n;i++){
       int mi=rare?MOD_COMMON+i:i, dup=0, q;
       w[i]=0;
@@ -233,7 +235,11 @@ static void draw3(int rare){ /* 시너지 가중 추첨 (§7), 슬롯 간 중복
         if(g_mod[M_MAGNET]&&i==M_SIPHON) ww*=2;
         if(g_mod[M_SIPHON]&&i==M_MAGNET) ww*=2;
         w[i]=ww;
-      } else { w[i]=10; if(mi==M_GLASSCANNON&&g_mod[M_GLASSCANNON]>=2) w[i]=0; } /* GC 캡2: 3스택 무의미 추첨 방지 */
+      } else { w[i]=10; /* 레어 균등, 단 과중첩 무의미 추첨 방지 캡 */
+        if(mi==M_GLASSCANNON&&g_mod[M_GLASSCANNON]>=2) w[i]=0;      /* GC 캡2 */
+        if(mi==M_EXECUTE&&g_mod[M_EXECUTE]>=3) w[i]=0;             /* 처형 임계 22% 상한(리뷰 LOW#7) */
+        if(mi==M_CRYO&&g_mod[M_CRYO]>=4) w[i]=0;                   /* 둔화 지속 1.7s 상한 */
+      }
       total+=w[i];
     }
     if(total<=0) continue;
@@ -310,7 +316,7 @@ static void add_trauma(float t){ g_trauma+=t; if(g_trauma>1.0f)g_trauma=1.0f; }
 
 typedef struct { vec2 pos, vel; float life, dmg, r; unsigned char active, pierce, bounce, mini, lastHit; } Bullet;
 /* 적 타입: 0헌터 1터릿 2리코셰 3포크 4샤드. affix 비트: 1보호막 2신속 4폭발사망 8자가분열 16자성 (§8.5) */
-typedef struct { vec2 pos, vel, kvel; float hp, maxhp, t, t2, flash, spawn, at, at2; unsigned char active, type, affix, eshield; } Enemy;
+typedef struct { vec2 pos, vel, kvel; float hp, maxhp, t, t2, flash, spawn, at, at2, slowT; unsigned char active, type, affix, eshield; } Enemy;
 typedef struct { vec2 pos; float t, t0; unsigned char active; } Boom; /* 폭발사망 지연 폭탄 (t0=초기 수명, 텔레그래프용) */
 typedef struct { vec2 pos, vel; float life, ilife, r, cr, cg, cb; unsigned char active; } Part;
 typedef struct { vec2 pos, vel; float t; unsigned char active, homing, kind; } Pickup; /* kind: 0=BITS 1=모듈오브 */

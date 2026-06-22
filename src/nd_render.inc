@@ -152,6 +152,7 @@ static void draw_enemy(Enemy*e){
     else { glColor4f(ar,ag,ab,0.9f); circle_line(mx,my,5.0f,8); diamond_fill(mx,my,1.5f,ar,ag,ab,0.9f); }
     if(e->eshield){ glColor4f(0.5f,0.95f,1.0f,0.6f); circle_line(x,y,r+9.0f,12); }
   }
+  if(e->slowT>0.0f){ glColor4f(0.4f,0.8f,1.0f,0.45f); circle_line(x,y,r+3.0f,12); circle_line(x,y,r+7.0f,12); } /* 냉기 둔화 큐 (M_CRYO) */
 }
 
 /* OVERCLOCK 256적 배칭 렌더 (docs/07 §14.7, 컨펌 oc-batch-v1): 패스당 단일 glBegin, 적별 디테일 단순화 */
