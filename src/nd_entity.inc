@@ -243,7 +243,7 @@ static void boss_update(float dt){
         if(beam_hit(B->pos.x,B->pos.y,ad.x,ad.y,7.0f,g_player.pos.x,g_player.pos.y,g_player.radius,700.0f)) hurt_player(2.0f); }
     }
     if(ph==3){ /* 압축 격노: 안전 반경 수축 + 상시 약한 셰이크 */
-      if(B->shrink>180.0f) B->shrink-=8.0f*dt;
+      if(B->shrink>180.0f) B->shrink-=12.0f*dt; /* DESIGN §26 v1.3a: 12px/s (NEXUS와 일치, QA 추적성 수정) */
       if(g_trauma<0.08f) g_trauma=0.08f;
       float pdx=g_player.pos.x-rcx, pdy=g_player.pos.y-rcy;
       if(pdx*pdx+pdy*pdy>B->shrink*B->shrink) hurt_player(1.0f);
