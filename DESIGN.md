@@ -769,11 +769,12 @@ docs/07 SDD의 VS/세피리아式 호드 생존 모드를 **별도 모드**로 �
 - **draw3 일반화**: 레어 개수 하드코딩 `8`→`(MODN-MOD_COMMON)` (모듈 추가 확장성). DESCENT 보스 보상 한정(OC 레벨업은 커먼만).
 - 최종 **112,128 bytes** (캡 7.6%).
 
-### v1.7 — OVERCLOCK 신규 무기 SHOCKWAVE (2026-06-22)
-무기 메타 테이블 확장 활용. 9번째 무기(W_SHOCK, WEAPN 8→9):
+### v1.7 — OVERCLOCK 신규 무기 2종 SHOCKWAVE·SCATTER (2026-06-22)
+무기 메타 테이블 확장 활용. 9·10번째 무기(W_SHOCK·W_SCATTER, WEAPN 8→10):
 - **SHOCKWAVE (W_SHOCK)**: 주기(2.2−0.12×lv초, 최소 0.8s)마다 플레이어 중심 대반경(120+22×lv) 펄스 — 광역 데미지(18+8×lv) + **강한 넉백(320)**. AURA(소형 지속)·NOVA(조준 폭발)와 차별되는 스페이싱/군중제어 도구. 진화 짝=KINETIC(×1.4 반경·×1.5 뎀·주기 0.6). 시각=확장 링 2겹(spawn_ring 재활용, 전용 렌더 불필요).
-- **자동 편입**: oc_draft/oc_check_evo/oc_apply/HUD 모두 WEAPN 순회라 무코드 편입. g_weapMeta 1행 + oc_weapons_update 거동 블록만 추가.
-- 최종 **112,640 bytes** (캡 7.6%).
+- **SCATTER (W_SCATTER)**: 주기(1.6−0.08×lv초, 최소 0.5s)마다 전방위 탄막 버스트(8+2×lv발, 진화 +6) — PULSE(조준 단발)·SWARM(타겟 일제)과 차별되는 무차별 군중 클리어. g_orbAng 회전 오프셋. 진화 짝=BOUNCE. spawn_minib 재활용(탄 자동 충돌·렌더, 전용 렌더 불필요).
+- **자동 편입**: oc_draft/oc_check_evo/oc_apply/HUD 모두 WEAPN 순회라 무코드 편입. 무기당 g_weapMeta 1행 + oc_weapons_update 거동 블록만.
+- 최종 **113,152 bytes** (캡 7.7%).
 
 ---
 *v1.0 (FROZEN) — 전체 리뷰 통과·동결. 사운드/미니맵/상점/옵션/디스플레이 스펙 명세 완료.*

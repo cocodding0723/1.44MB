@@ -355,7 +355,8 @@ static float g_bossMnx, g_bossMxx, g_bossMny, g_bossMxy, g_bossCx, g_bossCy;
 #define W_ARC 6
 #define W_DRONE 7
 #define W_SHOCK 8
-#define WEAPN 9
+#define W_SCATTER 9
+#define WEAPN 10
 #define WEAP_CAP 8
 static int g_mode;                 /* 0=DESCENT 1=OVERCLOCK */
 static int g_ocLevel, g_ocXP, g_ocXPneed, g_ocBossCount, g_upgCtx; /* g_upgCtx: 0=모듈 draw3 / 1=OC 드래프트 */
@@ -373,6 +374,7 @@ static const WeapMeta g_weapMeta[WEAPN]={
   {"ARC",      "CHAIN BOLT",    M_CRIT},   /* W_ARC   */
   {"DRONES",   "AUTO DRONES",   M_HOMING}, /* W_DRONE */
   {"SHOCKWAVE", "KNOCKBACK PULSE", M_KINETIC}, /* W_SHOCK (v1.7): 주기 대반경 펄스+강넉백 */
+  {"SCATTER",   "OMNI BURST",      M_BOUNCE},  /* W_SCATTER (v1.7): 주기 전방위 탄막 버스트 */
 };
 static float g_arenaX0, g_arenaY0, g_arenaX1, g_arenaY1;
 static int oc_score(void){ return (int)g_ocT*10 + g_kills*5 + g_ocLevel*200 + g_bossKills*1000; }

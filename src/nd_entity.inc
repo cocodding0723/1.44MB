@@ -398,6 +398,16 @@ static void oc_weapons_update(float dt){
       add_trauma(0.12f); snd_play(SFX_DASH);
     }
   }
+  if(g_weapLvl[W_SCATTER]){ /* SCATTER: 주기적 전방위 탄막 버스트 (spawn_minib 재활용 — 자동 충돌·렌더) */
+    int lv=g_weapLvl[W_SCATTER], evo=g_weapEvo[W_SCATTER];
+    g_weapTimer[W_SCATTER]-=dt;
+    if(g_weapTimer[W_SCATTER]<=0.0f){
+      g_weapTimer[W_SCATTER]=(1.6f-0.08f*(float)lv)*(evo?0.65f:1.0f); if(g_weapTimer[W_SCATTER]<0.5f)g_weapTimer[W_SCATTER]=0.5f;
+      int n=8+2*lv+(evo?6:0); float dm=BUL_DMG*(0.7f+0.15f*(float)lv);
+      for(k=0;k<n;k++){ float a=g_orbAng+(float)k*6.2831853f/(float)n; spawn_minib(g_player.pos.x,g_player.pos.y,f_cos(a),f_sin(a),dm); }
+      snd_play(SFX_SHOOT);
+    }
+  }
   if(g_weapLvl[W_SWARM]){ /* SWARM: 최근접 N체에 조준 나이프 일제 발사 (spawn_minib 재활용) */
     int lv=g_weapLvl[W_SWARM];
     g_weapTimer[W_SWARM]-=dt;
