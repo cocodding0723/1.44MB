@@ -303,7 +303,7 @@ static int oc_pick_type(void){
   types[n]=0; w[n++]=10;            /* HUNTER */
   types[n]=4; w[n++]=8;             /* SHARD = MITE fodder (§6) */
   if(g_ocT>=60.0f){ types[n]=1; w[n++]=5; types[n]=2; w[n++]=5; types[n]=5; w[n++]=4; }
-  if(g_ocT>=180.0f){ types[n]=3; w[n++]=4; types[n]=6; w[n++]=4; }
+  if(g_ocT>=180.0f){ types[n]=3; w[n++]=4; types[n]=6; w[n++]=4; types[n]=7; w[n++]=4; } /* +PHANTOM (v1.5) */
   for(i=0;i<n;i++) tot+=w[i];
   int r=(int)(xrnd()%(unsigned)tot);
   for(i=0;i<n;i++){ r-=w[i]; if(r<0) return types[i]; }

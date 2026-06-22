@@ -109,6 +109,24 @@ static void draw_enemy(Enemy*e){
     for(kk=0;kk<6;kk++){ float aa=(float)kk*1.0471976f-a*1.4f; glVertex2f(x+f_cos(aa)*r*0.6f,y+f_sin(aa)*r*0.6f); } glEnd();
     circle_fill(x,y,r*0.35f,10,fr*flick,fg*flick,fb*flick,0.95f);
   }
+  else if(e->type==7){ /* PHANTOM: 위상 이중 잔상 다이아 + 점멸 링 + 블링크 텔레그래프 (v1.5) */
+    diamond_fill(x,y,r*1.7f,fr,fg,fb,gpop);
+    float ph=f_sin(t*22.0f)*4.0f;                         /* 위상 잔상(점멸 오프셋) */
+    diamond_fill(x+ph,y-ph*0.4f,r*0.95f,fr,fg,fb,0.35f);
+    float rfl=0.6f+0.4f*f_sin(t*16.0f);
+    glColor4f(fr,fg,fb,0.5f*rfl); circle_line(x,y,r+5.0f,12);
+    if(e->t2>=1.7f){                                      /* 블링크 직전 0.5s 텔레그래프: 목적지 고스트+선 */
+      float ddx=g_player.pos.x-x, ddy=g_player.pos.y-y, dl=f_sqrt(ddx*ddx+ddy*ddy); if(dl<0.01f)dl=1.0f;
+      float bd=200.0f; if(bd>dl-40.0f)bd=dl-40.0f; if(bd<0.0f)bd=0.0f;
+      float tgx=x+ddx/dl*bd, tgy=y+ddy/dl*bd, tw=(e->t2-1.7f)/0.5f;
+      glColor4f(fr,fg,fb,0.3f+0.5f*tw);
+      glBegin(GL_LINES); glVertex2f(x,y); glVertex2f(tgx,tgy); glEnd();
+      diamond_line(tgx,tgy,r);
+    }
+    if(fl){ fr=fg=fb=1.0f; }
+    diamond_fill(x,y,r,fr*flick,fg*flick,fb*flick,0.95f);
+    diamond_fill(x,y,r*0.4f,1.0f,1.0f,1.0f,0.9f);
+  }
   else { /* SHARD: 글로우 + 회전 삼각 + 중심점 */
     int kk; circle_fill(x,y,r*1.5f,8,fr,fg,fb,gpop);
     float a=t*4.0f;

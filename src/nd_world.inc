@@ -207,14 +207,15 @@ static int spawn_enemy(int type,float x,float y,int allowElite){
     return i; }
   return -1;
 }
-static int pick_enemy_type(void){ /* 해금: L1 헌터/L2 터릿/L3 리코셰/L4 포크/L5 랜서/L6 위버. 초반 헌터 가중 */
-  int types[6], n=1; types[0]=0;
+static int pick_enemy_type(void){ /* 해금: L1헌터/L2터릿/L3리코셰/L4포크/L5랜서/L6위버/L7팬텀. 초반 헌터 가중 */
+  int types[7], n=1; types[0]=0;
   if(g_depth>=2) types[n++]=1;
   if(g_depth>=3) types[n++]=2;
   if(g_depth>=4) types[n++]=3;
   if(g_depth>=5) types[n++]=5;
   if(g_depth>=6) types[n++]=6;
-  int w[6], i, tot=0;
+  if(g_depth>=7) types[n++]=7; /* PHANTOM (v1.5) */
+  int w[7], i, tot=0;
   for(i=0;i<n;i++){ w[i]=(types[i]==0)?(g_depth>=6?8:10):(g_depth>=6?8:6); tot+=w[i]; }
   int r=(int)(xrnd()%(unsigned)tot);
   for(i=0;i<n;i++){ r-=w[i]; if(r<0) return types[i]; }

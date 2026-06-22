@@ -23,5 +23,8 @@ metadata:
 - **OVERCLOCK 무기 추가**: `nd_data.inc` W_* 매크로+WEAPN++·**`g_weapMeta[]` 테이블 한 줄**(name/desc/evoReq 통합), `nd_entity.inc` oc_weapons_update 거동 블록·oc_draft 후보, `nd_render.inc` 시각화 블록. (메타 3배열→단일 WeapMeta 테이블, +512B.)
 - **모듈 추가**: g_modName/Desc/g_modW 배열(이미 테이블) + apply_mod/combat 효과.
 
+## 신규 콘텐츠 (확장 구조 첫 활용)
+- **PHANTOM (적 type 7, v1.5, 2026-06-22)**: 순간이동 교란 적. 위 "적 추가" 플로우대로 g_eneStat[8] 1행 + enemy_update 분기 + draw_enemy 분기(배칭은 다이아 폴백) + pick_enemy_type(L7)/oc_pick_type(t180). rules/50 목업 승인 후 구현. +1KB(111,104B). 임시 해금 낮춰 양 모드 스폰 검증 후 정상 복원.
+
 ## 검증
-원본 단일 game.c vs 분할본 빌드 = exe 동일(110,080). 적 테이블 통합 후 109,568(−512B, 중복제거). 양 모드·전 화면 안정성 확인. 동작 변경 0.
+원본 단일 game.c vs 분할본 빌드 = exe 동일(110,080). 적 테이블 통합 후 109,568(−512B). 무기메타 110,080. sapp 110,080. enemy_update 추출 110,080(byte-identical). PHANTOM 111,104. 양 모드·전 화면 안정성 확인.
