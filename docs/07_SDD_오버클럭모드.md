@@ -281,7 +281,7 @@ static float g_orbAng;               /* 오비탈 공전 위상(g_time 파생도
 - **문제:** `draw3`(src/game.c:245)/`mod_capped`(237)은 **본편 26모듈 배열(`g_mod[]`) 전용**. OVERCLOCK 무기(`g_weap[]`)는 추첨 불가. `mod_capped` 우회를 draw3에 넣으면 본편 §7 가드 회귀.
 - **설계 — 신규 `oc_draft`/`oc_apply`, draw3는 한 줄도 안 건드림:**
   ```c
-  /* 추첨 후보 정의: 무기 8종 + 패시브 N종, 각 카드 = {kind(0무기/1패시브), id, isNew} */
+  /* 추첨 후보 정의: 무기 10종(v1.7) + 패시브 N종, 각 카드 = {kind(0무기/1패시브), id, isNew} */
   static void oc_draft(void){            /* draw3 미사용 — g_upgSel[3]만 공유 재활용 */
     int k; g_upgSel[0]=g_upgSel[1]=g_upgSel[2]=-1;
     for(k=0;k<3;k++){
