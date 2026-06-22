@@ -185,7 +185,8 @@ HARD_CAP 1,474,560 bytes | TARGET 65,536 | WARN 49,152 | HARD_WARN 1,179,648
 | 2026-06-22 | 신규 레어 모듈 CRYO·EXECUTE (v1.6) | 111616 | 7.57% | 170.31% | ORANGE |
 | 2026-06-22 | + 레어 모듈 PHASE EDGE (v1.6) | 112128 | 7.60% | 171.09% | ORANGE |
 | 2026-06-22 | 신규 OC 무기 SHOCKWAVE (v1.7) | 112640 | 7.64% | 171.88% | ORANGE |
+| 2026-06-22 | 신규 OC 무기 SCATTER (v1.7) | 113152 | 7.67% | 172.66% | ORANGE |
 
 > 2026-06-22 세션 요약: 도메인 분할 리팩토링(동작 불변) + 확장성 테이블화(적/무기 메타) 후
-> 신규 콘텐츠 6종(적 PHANTOM, 모듈 CRYO/EXECUTE/PHASE EDGE, 무기 SHOCKWAVE) 추가.
-> 110,080→112,640 (+2,560B, +0.17%cap). 캡 7.6%로 여전히 GREEN-zone 한참 아래. TARGET(64KB) 초과는 v1.3+ 콘텐츠 누적분.
+> 신규 콘텐츠 6종(적 PHANTOM, 모듈 CRYO/EXECUTE/PHASE EDGE, 무기 SHOCKWAVE/SCATTER) 추가.
+> 110,080→113,152 (+3,072B, +0.21%cap). 캡 7.7%로 여전히 GREEN-zone 한참 아래. TARGET(64KB) 초과는 v1.3+ 콘텐츠 누적분.
