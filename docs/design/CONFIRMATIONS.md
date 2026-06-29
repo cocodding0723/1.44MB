@@ -7,18 +7,22 @@
 
 | 요소 | 버전 | 상태 | 날짜 | 메모 |
 |---|---|---|---|---|
-| 맵/방 레이아웃 룩 | v1 | ⏳대기 | 2026-06-10 | [shot-play.png](shot-play.png) — 회로 라인+도트 그리드+팰릿 |
-| 플레이어 실루엣 | v1 | ⏳대기 | 2026-06-10 | [shot-play.png](shot-play.png) — 흰 코어 다이아+티어 글로우 |
-| 적 4종 실루엣 | v1 | ⏳대기 | 2026-06-10 | 삼각/사각/다이아/육각 — 인게임 확인 필요 |
-| 보스 2종 | v1 | ⏳대기 | 2026-06-10 | CORE 맥동 구체 / WARDEN 회전 프레임+세그먼트 — 인게임 L3/L6 |
-| UI 타이틀 | v1 | ⏳대기 | 2026-06-10 | [shot-title.png](shot-title.png) |
-| UI HUD | v1 | ⏳대기 | 2026-06-10 | [shot-combat.png](shot-combat.png) — 하트/LAYER/SCORE/BITS/미니맵/스킬게이지 |
-| UI 일시정지+옵션 | v1 | ⏳대기 | 2026-06-10 | [shot-pause.png](shot-pause.png) |
-| UI 모듈선택 | v1 | ⏳대기 | 2026-06-10 | 카드 3장 — 인게임 모듈방 도달 시 확인 |
-| UI 게임오버 | v1 | ⏳대기 | 2026-06-10 | 점수 분해 — 인게임 사망 시 확인 |
-| 팰릿 5티어 스와치 | v1 | ⏳대기 | 2026-06-10 | 코드 g_palBg/g_palAc — 레이어 하강으로 확인 |
+| 맵/방 레이아웃 룩 | v1 | ✅승인 | 2026-06-29 | [shot-play.png](shot-play.png) — 회로 라인+도트 그리드+팰릿 |
+| 플레이어 실루엣 | v1 | ✅승인 | 2026-06-29 | [shot-play.png](shot-play.png) — 흰 코어 다이아+티어 글로우 |
+| 적 4종 실루엣 | v1 | ✅승인 | 2026-06-29 | 삼각/사각/다이아/육각 — 인게임 확인 필요 |
+| 보스 2종 | v1 | ✅승인 | 2026-06-29 | CORE 맥동 구체 / WARDEN 회전 프레임+세그먼트 — 인게임 L3/L6 |
+| UI 타이틀 | v1 | ✅승인 | 2026-06-29 | [shot-title.png](shot-title.png) |
+| UI HUD | v1 | ✅승인 | 2026-06-29 | [shot-combat.png](shot-combat.png) — 하트/LAYER/SCORE/BITS/미니맵/스킬게이지 |
+| UI 일시정지+옵션 | v1 | ✅승인 | 2026-06-29 | [shot-pause.png](shot-pause.png) |
+| UI 모듈선택 | v1 | ✅승인 | 2026-06-29 | 카드 3장 — 인게임 모듈방 도달 시 확인 |
+| UI 게임오버 | v1 | ✅승인 | 2026-06-29 | 점수 분해 — 인게임 사망 시 확인 |
+| 팰릿 5티어 스와치 | v1 | ✅승인 | 2026-06-29 | 코드 g_palBg/g_palAc — 레이어 하강으로 확인 |
 
 > 상태: ⏳대기 / 🔁수정요청 / ✅승인. 구현은 완료됐으나 **승인 전까지 비주얼은 변경 가능 상태**로 취급.
+>
+> **✅ 일괄 승인 (2026-06-29):** BASE v1·B확장·N서사 3클러스터(18요소)를 검토 시트 3장으로 일괄 컨펌받아 ✅ 처리.
+> 검토 자료: [review-BASE.png](review-BASE.png) · [review-B.png](review-B.png) · [review-NARRATIVE.png](review-NARRATIVE.png)
+> (BASE 모듈선택·팰릿 스와치는 신규 절차 목업 [module-cards-v1.png](module-cards-v1.png)·[palette-v1.png](palette-v1.png)로 보강.)
 
 ## A 확장 — 비주얼 폴리시 (2026-06-13, 다층 스프라이트 + 포스트FX)
 
@@ -40,10 +44,10 @@
 
 | 요소 | 버전 | 상태 | 날짜 | 메모 |
 |---|---|---|---|---|
-| 적 LANCER (type5) | v1 | ⏳대기 | 2026-06-13 | [new-enemies.png](shots-B/new-enemies.png) — 핫핑크 방향 화살촉 + 윙 + 돌진 텔레그래프선. L5 해금 |
-| 적 WEAVER (type6) | v1 | ⏳대기 | 2026-06-13 | [new-enemies2.png](shots-B/new-enemies2.png) — 바이올렛 역회전 헥스 2겹 + 코어. 기뢰 설치. L6 해금 |
-| 보스 THE NEXUS (type2) | v1 | ⏳대기 | 2026-06-13 | [nexus-room1.png](shots-B/nexus-room1.png) — 테알 본체 + 3노드 + 회전 삼각 빔케이지. L9 순환 |
-| 모듈 6종 (UI 카드) | v1 | ⏳대기 | 2026-06-13 | 커먼: 보복/운동/광란/흡수, 레어: 글래스캐논/체인라이트닝. 모듈방 카드로 확인 |
+| 적 LANCER (type5) | v1 | ✅승인 | 2026-06-29 | [new-enemies.png](shots-B/new-enemies.png) — 핫핑크 방향 화살촉 + 윙 + 돌진 텔레그래프선. L5 해금 |
+| 적 WEAVER (type6) | v1 | ✅승인 | 2026-06-29 | [new-enemies2.png](shots-B/new-enemies2.png) — 바이올렛 역회전 헥스 2겹 + 코어. 기뢰 설치. L6 해금 |
+| 보스 THE NEXUS (type2) | v1 | ✅승인 | 2026-06-29 | [nexus-room1.png](shots-B/nexus-room1.png) — 테알 본체 + 3노드 + 회전 삼각 빔케이지. L9 순환 |
+| 모듈 6종 (UI 카드) | v1 | ✅승인 | 2026-06-29 | 커먼: 보복/운동/광란/흡수, 레어: 글래스캐논/체인라이트닝. 모듈방 카드로 확인 |
 
 ## N 서사 — 내러티브 UI 비주얼 (2026-06-14, N1~N3 교신·코덱스·페르소나·엔딩)
 
@@ -52,12 +56,12 @@
 
 | 요소 | 버전 | 상태 | 날짜 | 메모 |
 |---|---|---|---|---|
-| 교신 오버레이 (ECHO 레이어 진입) | v2 | ⏳대기 | 2026-06-14 | [v2-comms.png](shots-narr/v2-comms.png) — **ECHO 점멸 삼각 시질(+노이즈 점) 추가, 패널 대비 0.62→0.80**. art-director HIGH(시질·대비) 반영 |
-| 코덱스 뷰어 (FRAGMENTS 열람) | v2 | ⏳대기 | 2026-06-14 | [v2-codex.png](shots-narr/v2-codex.png) — **해금 항목 다이아 마커 + 텍스트 강조(0.92α)**. art-director HIGH(해금 강조) 반영 |
-| 페르소나 셀렉터 | v2 | ⏳대기 | 2026-06-14 | [v2-persona.png](shots-narr/v2-persona.png) — **페르소나별 고유 시질(REVENANT 다이아+깨진링/DAEMON 가시/SENTINEL 육각방패/GHOST 이중링) + "A-PREV/NEXT-D" 명확화**. art-director HIGH(시질·UX) 반영 |
-| 엔딩 화면 | v2 | ⏳대기 | 2026-06-14 | 엔딩별 시질(타이틀 아래) + 색상 차별화(PURGE청/MERGE보라/ESCAPE테알/ROT적) + 타이틀 위치 하향. art-director MED 반영 |
+| 교신 오버레이 (ECHO 레이어 진입) | v2 | ✅승인 | 2026-06-29 | [v2-comms.png](shots-narr/v2-comms.png) — **ECHO 점멸 삼각 시질(+노이즈 점) 추가, 패널 대비 0.62→0.80**. art-director HIGH(시질·대비) 반영 |
+| 코덱스 뷰어 (FRAGMENTS 열람) | v2 | ✅승인 | 2026-06-29 | [v2-codex.png](shots-narr/v2-codex.png) — **해금 항목 다이아 마커 + 텍스트 강조(0.92α)**. art-director HIGH(해금 강조) 반영 |
+| 페르소나 셀렉터 | v2 | ✅승인 | 2026-06-29 | [v2-persona.png](shots-narr/v2-persona.png) — **페르소나별 고유 시질(REVENANT 다이아+깨진링/DAEMON 가시/SENTINEL 육각방패/GHOST 이중링) + "A-PREV/NEXT-D" 명확화**. art-director HIGH(시질·UX) 반영 |
+| 엔딩 화면 | v2 | ✅승인 | 2026-06-29 | 엔딩별 시질(타이틀 아래) + 색상 차별화(PURGE청/MERGE보라/ESCAPE테알/ROT적) + 타이틀 위치 하향. art-director MED 반영. **MERGE 대표 캡처로 승인** — PURGE·ESCAPE 캡처는 추후 보강(코드 구현은 4종 모두 완료) |
 
-> **art-director 검토 후 보강(v2, 2026-06-14)**: HIGH "시질 부재"(설계 §2)를 `draw_sigil` 절차 엠블럼으로 전면 해소(교신 ECHO 삼각·페르소나 4종·엔딩 4종·코덱스 마커). 패널 대비·해금 강조·페르소나 UX·엔딩 위치/색 보완. 에셋 0 유지. 사용자 ✅ 승인 대기.
+> **art-director 검토 후 보강(v2, 2026-06-14)**: HIGH "시질 부재"(설계 §2)를 `draw_sigil` 절차 엠블럼으로 전면 해소(교신 ECHO 삼각·페르소나 4종·엔딩 4종·코덱스 마커). 패널 대비·해금 강조·페르소나 UX·엔딩 위치/색 보완. 에셋 0 유지. **2026-06-29 사용자 ✅ 일괄 승인**(엔딩은 MERGE 대표, PURGE/ESCAPE 캡처 추후 보강).
 
 ## S 상점방 (2026-06-18, DESIGN §13 스트레치 — 구현 전 컨펌 게이트)
 
