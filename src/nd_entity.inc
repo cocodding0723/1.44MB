@@ -358,7 +358,7 @@ static void oc_horde_update(float dt){
 /* 자동 무기: ORBITERS(공전 블레이드) + NOVA(최근접 폭발). PULSE는 발사 블록에서 자동조준 */
 static void oc_weapons_update(float dt){
   int j,k;
-  g_orbAng+=dt*2.4f;
+  g_orbAng+=dt*2.4f; /* 누적각 무한증가 허용: f_sin이 range-reduce하고 런은 유한. 래핑 시 20π 주기 필수(g_orbAng×0.7·segAng×0.5/×2.2 연속 보존) — 이득<위험으로 보류(code-review LOW#5) */
   if(g_weapLvl[W_ORBIT]){
     int lv=g_weapLvl[W_ORBIT], evo=g_weapEvo[W_ORBIT], n=2+lv+(evo?2:0); float R=70.0f+10.0f*(float)lv+(evo?25.0f:0.0f), odm=(18.0f+8.0f*(float)lv)*(evo?1.6f:1.0f);
     g_weapTimer[W_ORBIT]-=dt; int tick=g_weapTimer[W_ORBIT]<=0.0f; if(tick) g_weapTimer[W_ORBIT]=0.12f;

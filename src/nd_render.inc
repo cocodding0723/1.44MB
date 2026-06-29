@@ -32,10 +32,13 @@ static void hex_fill(float x,float y,float r){
 static void phantom_telegraph(Enemy*e,float fr,float fg,float fb){
   float x=e->pos.x, y=e->pos.y;
   float ddx=g_player.pos.x-x, ddy=g_player.pos.y-y, dl=f_sqrt(ddx*ddx+ddy*ddy); if(dl<0.01f)dl=1.0f;
-  float bd=200.0f; if(bd>dl-40.0f)bd=dl-40.0f; if(bd<0.0f)bd=0.0f;
-  float tgx=x+ddx/dl*bd, tgy=y+ddy/dl*bd, tw=(e->t2-1.7f)/0.5f;
+  float bd=PH_BLINK_DIST; if(bd>dl-PH_BLINK_GAP)bd=dl-PH_BLINK_GAP; if(bd<0.0f)bd=0.0f;
+  float tgx=x+ddx/dl*bd, tgy=y+ddy/dl*bd, tw=(e->t2-PH_TELE_START)/(PH_BLINK_PERIOD-PH_TELE_START);
   glColor4f(fr,fg,fb,0.3f+0.5f*tw);
-  glBegin(GL_LINES); glVertex2f(x,y); glVertex2f(tgx,tgy); glEnd();
+  int ds; glBegin(GL_LINES); /* 점선: 6 대시(슬롯 절반 길이) — '예측 경고' 가독성(QA LOW#3) */
+  for(ds=0;ds<6;ds++){ float u0=(float)ds/6.0f, u1=u0+0.5f/6.0f;
+    glVertex2f(x+(tgx-x)*u0,y+(tgy-y)*u0); glVertex2f(x+(tgx-x)*u1,y+(tgy-y)*u1); }
+  glEnd();
   diamond_line(tgx,tgy,ene_radius(e->type));
 }
 static void draw_enemy(Enemy*e){
@@ -125,7 +128,7 @@ static void draw_enemy(Enemy*e){
     diamond_fill(x+ph,y-ph*0.4f,r*0.95f,fr,fg,fb,0.35f);
     float rfl=0.6f+0.4f*f_sin(t*16.0f);
     glColor4f(fr,fg,fb,0.5f*rfl); circle_line(x,y,r+5.0f,12);
-    if(e->t2>=1.7f) phantom_telegraph(e,fr,fg,fb); /* 블링크 직전 0.5s 텔레그래프 */
+    if(e->t2>=PH_TELE_START) phantom_telegraph(e,fr,fg,fb); /* 블링크 직전 0.5s 텔레그래프 */
     if(fl){ fr=fg=fb=1.0f; }
     diamond_fill(x,y,r,fr*flick,fg*flick,fb*flick,0.95f);
     diamond_fill(x,y,r*0.4f,1.0f,1.0f,1.0f,0.9f);
@@ -198,7 +201,7 @@ static void draw_enemy_batched(void){
       circle_line(e->pos.x,e->pos.y,r+22.0f*(e->spawn/0.4f),12); }
     else if(e->affix){ ene_color(e->type,&cr,&cg,&cb); glColor4f(cr,cg,cb,0.85f); circle_line(e->pos.x,e->pos.y,ene_radius(e->type)+5.0f,10);
       if(e->eshield){ glColor4f(0.5f,0.95f,1.0f,0.6f); circle_line(e->pos.x,e->pos.y,ene_radius(e->type)+9.0f,10); } }
-    if(e->type==7&&e->spawn<=0.0f&&e->t2>=1.7f){ ene_color(7,&cr,&cg,&cb); phantom_telegraph(e,cr,cg,cb); } } /* OC PHANTOM 블링크 텔레그래프 (QA HIGH#1) */
+    if(e->type==7&&e->spawn<=0.0f&&e->t2>=PH_TELE_START){ ene_color(7,&cr,&cg,&cb); phantom_telegraph(e,cr,cg,cb); } } /* OC PHANTOM 블링크 텔레그래프 (QA HIGH#1) */
 }
 static void hud_begin(int w,int h){
   glMatrixMode(GL_PROJECTION); glLoadIdentity(); glOrtho(0,w,h,0,-1,1); glMatrixMode(GL_MODELVIEW); glLoadIdentity();

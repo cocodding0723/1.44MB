@@ -156,6 +156,11 @@ static void snd_update(void){
 #define MAXAFTER 32
 #define SHAKE_MAX 20.0f
 #define TRAUMA_DECAY 1.5f
+/* PHANTOM(type7) 블링크 — AI(nd_combat)·텔레그래프(nd_render) 공용 상수(드리프트 방지, code-review LOW) */
+#define PH_BLINK_DIST 200.0f    /* 블링크 거리 */
+#define PH_BLINK_GAP  40.0f     /* 목적지 벽 여유 */
+#define PH_TELE_START 1.7f      /* 텔레그래프 시작(주기 마지막 0.5s) */
+#define PH_BLINK_PERIOD 2.2f    /* 블링크 주기 */
 
 /* 게임 상태 (§17) */
 #define ST_TITLE 0

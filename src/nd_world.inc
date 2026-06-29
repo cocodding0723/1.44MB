@@ -295,6 +295,7 @@ static void hurt_player(float dmg){
   }
 }
 
+/* 적 탄: Bullet 풀 재사용. ebul은 pos/vel/life만 사용(dmg/r/pierce/bounce/mini/lastHit 미사용 — 레벨 init memset로 0 보장). 향후 ebul에 dmg/r 도입 시 여기서 명시 초기화 필요(code-review LOW#4). */
 static void spawn_ebul(float x,float y,float ux,float uy,float spd,float life){
   int i; for(i=0;i<MAXEBUL;i++) if(!g_ebul[i].active){ Bullet*b=&g_ebul[i];
     b->active=1; b->pos.x=x; b->pos.y=y; b->vel.x=ux*spd; b->vel.y=uy*spd; b->life=life; return; }
