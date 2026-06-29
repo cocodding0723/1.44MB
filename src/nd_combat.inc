@@ -89,8 +89,10 @@ static void enemy_update(int i, float dt){
         e->t2=0.0f;
         float bd=200.0f; if(bd>dist-40.0f) bd=dist-40.0f; if(bd<0.0f)bd=0.0f;
         float nx=e->pos.x+dx/dist*bd, ny=e->pos.y+dy/dist*bd;
-        if(!(is_wall_w(nx-r*0.6f,ny)||is_wall_w(nx+r*0.6f,ny)||is_wall_w(nx,ny-r*0.6f)||is_wall_w(nx,ny+r*0.6f))){ e->pos.x=nx; e->pos.y=ny; } /* 4점 검사: 본체 벽 겹침 방지(리뷰 MED#1) */
-        spawn_ring(e->pos.x,e->pos.y,16.0f,300.0f,0.3f,0.82f,0.78f,1.0f); burst(e->pos.x,e->pos.y,8,180.0f,0.85f,0.8f,1.0f);
+        if(!(is_wall_w(nx-r*0.6f,ny)||is_wall_w(nx+r*0.6f,ny)||is_wall_w(nx,ny-r*0.6f)||is_wall_w(nx,ny+r*0.6f))){ /* 4점 검사: 본체 벽 겹침 방지(리뷰 MED#1) */
+          e->pos.x=nx; e->pos.y=ny;
+          spawn_ring(e->pos.x,e->pos.y,16.0f,300.0f,0.3f,0.82f,0.78f,1.0f); burst(e->pos.x,e->pos.y,8,180.0f,0.85f,0.8f,1.0f); /* 블링크 성공 시에만 이펙트 (QA MED#2) */
+        }
       } else if(e->t2<1.7f){ /* 느린 드리프트 (벽 ±0.6r 2점 충돌) */
         float vx=dx/dist*spd*0.5f+kx, vy=dy/dist*spd*0.5f+ky;
         float nx=e->pos.x+vx*dt, ex2=nx+(vx>0?r:-r);

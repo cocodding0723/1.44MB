@@ -189,6 +189,7 @@ HARD_CAP 1,474,560 bytes | TARGET 65,536 | WARN 49,152 | HARD_WARN 1,179,648
 | 2026-06-22 | 신규 적 HIVE (type8 소환 노드, v1.8) | 114176 | 7.74% | 174.22% | ORANGE |
 | 2026-06-22 | 레어 모듈 SHRAPNEL (v1.9) + draw3 방어 | 114176 | 7.74% | 174.22% | ORANGE |
 | 2026-06-23 | 신규 보스 THE PULSAR (OC 전용 type3, v2.0) | 115712 | 7.85% | 176.56% | ORANGE |
+| 2026-06-29 | QA수정: OC PHANTOM 텔레그래프 배칭 누락(HIGH)+블링크 이펙트 조건부(MED), phantom_telegraph 헬퍼 추출 | 116224 | 7.88% | 177.34% | ORANGE |
 
 > 2026-06-22 세션 요약: 도메인 분할 리팩토링(동작 불변) + 확장성 테이블화(적/무기 메타) 후
 > 신규 콘텐츠 6종(적 PHANTOM, 모듈 CRYO/EXECUTE/PHASE EDGE, 무기 SHOCKWAVE/SCATTER) 추가.

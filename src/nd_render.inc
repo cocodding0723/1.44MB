@@ -28,6 +28,16 @@ static void hex_fill(float x,float y,float r){
   for(k=0;k<=6;k++){ float a=(float)k/6.0f*6.2831853f; glVertex2f(x+f_cos(a)*r,y+f_sin(a)*r); }
   glEnd();
 }
+/* PHANTOM 블링크 텔레그래프: 목적지 고스트+선 (draw_enemy/draw_enemy_batched 공용, v1.5) */
+static void phantom_telegraph(Enemy*e,float fr,float fg,float fb){
+  float x=e->pos.x, y=e->pos.y;
+  float ddx=g_player.pos.x-x, ddy=g_player.pos.y-y, dl=f_sqrt(ddx*ddx+ddy*ddy); if(dl<0.01f)dl=1.0f;
+  float bd=200.0f; if(bd>dl-40.0f)bd=dl-40.0f; if(bd<0.0f)bd=0.0f;
+  float tgx=x+ddx/dl*bd, tgy=y+ddy/dl*bd, tw=(e->t2-1.7f)/0.5f;
+  glColor4f(fr,fg,fb,0.3f+0.5f*tw);
+  glBegin(GL_LINES); glVertex2f(x,y); glVertex2f(tgx,tgy); glEnd();
+  diamond_line(tgx,tgy,ene_radius(e->type));
+}
 static void draw_enemy(Enemy*e){
   float r=ene_radius(e->type), x=e->pos.x, y=e->pos.y;
   float fr,fg,fb; ene_color(e->type,&fr,&fg,&fb); /* 색 단일 출처(g_eneStat) */
@@ -115,14 +125,7 @@ static void draw_enemy(Enemy*e){
     diamond_fill(x+ph,y-ph*0.4f,r*0.95f,fr,fg,fb,0.35f);
     float rfl=0.6f+0.4f*f_sin(t*16.0f);
     glColor4f(fr,fg,fb,0.5f*rfl); circle_line(x,y,r+5.0f,12);
-    if(e->t2>=1.7f){                                      /* 블링크 직전 0.5s 텔레그래프: 목적지 고스트+선 */
-      float ddx=g_player.pos.x-x, ddy=g_player.pos.y-y, dl=f_sqrt(ddx*ddx+ddy*ddy); if(dl<0.01f)dl=1.0f;
-      float bd=200.0f; if(bd>dl-40.0f)bd=dl-40.0f; if(bd<0.0f)bd=0.0f;
-      float tgx=x+ddx/dl*bd, tgy=y+ddy/dl*bd, tw=(e->t2-1.7f)/0.5f;
-      glColor4f(fr,fg,fb,0.3f+0.5f*tw);
-      glBegin(GL_LINES); glVertex2f(x,y); glVertex2f(tgx,tgy); glEnd();
-      diamond_line(tgx,tgy,r);
-    }
+    if(e->t2>=1.7f) phantom_telegraph(e,fr,fg,fb); /* 블링크 직전 0.5s 텔레그래프 */
     if(fl){ fr=fg=fb=1.0f; }
     diamond_fill(x,y,r,fr*flick,fg*flick,fb*flick,0.95f);
     diamond_fill(x,y,r*0.4f,1.0f,1.0f,1.0f,0.9f);
@@ -194,7 +197,8 @@ static void draw_enemy_batched(void){
     if(e->spawn>0.0f){ float r=ene_radius(e->type); ene_color(e->type,&cr,&cg,&cb); glColor4f(cr,cg,cb,0.7f);
       circle_line(e->pos.x,e->pos.y,r+22.0f*(e->spawn/0.4f),12); }
     else if(e->affix){ ene_color(e->type,&cr,&cg,&cb); glColor4f(cr,cg,cb,0.85f); circle_line(e->pos.x,e->pos.y,ene_radius(e->type)+5.0f,10);
-      if(e->eshield){ glColor4f(0.5f,0.95f,1.0f,0.6f); circle_line(e->pos.x,e->pos.y,ene_radius(e->type)+9.0f,10); } } }
+      if(e->eshield){ glColor4f(0.5f,0.95f,1.0f,0.6f); circle_line(e->pos.x,e->pos.y,ene_radius(e->type)+9.0f,10); } }
+    if(e->type==7&&e->spawn<=0.0f&&e->t2>=1.7f){ ene_color(7,&cr,&cg,&cb); phantom_telegraph(e,cr,cg,cb); } } /* OC PHANTOM 블링크 텔레그래프 (QA HIGH#1) */
 }
 static void hud_begin(int w,int h){
   glMatrixMode(GL_PROJECTION); glLoadIdentity(); glOrtho(0,w,h,0,-1,1); glMatrixMode(GL_MODELVIEW); glLoadIdentity();
