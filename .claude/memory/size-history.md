@@ -191,6 +191,7 @@ HARD_CAP 1,474,560 bytes | TARGET 65,536 | WARN 49,152 | HARD_WARN 1,179,648
 | 2026-06-23 | 신규 보스 THE PULSAR (OC 전용 type3, v2.0) | 115712 | 7.85% | 176.56% | ORANGE |
 | 2026-06-29 | QA수정: OC PHANTOM 텔레그래프 배칭 누락(HIGH)+블링크 이펙트 조건부(MED), phantom_telegraph 헬퍼 추출 | 116224 | 7.88% | 177.34% | ORANGE |
 | 2026-06-29 | 적대적검수 수정: 보스중 스폰감속(§3.6 갭)·oc_draft cap필터·HIVE 벽폴백 | 116736 | 7.92% | 178.13% | ORANGE |
+| 2026-06-29 | v2.1 밸런스: PULSAR P3 수명3.0s·LEECH OC캡×3·§14.6 superseded (상수변경, Δ0) | 116736 | 7.92% | 178.13% | ORANGE |
 
 > 2026-06-22 세션 요약: 도메인 분할 리팩토링(동작 불변) + 확장성 테이블화(적/무기 메타) 후
 > 신규 콘텐츠 6종(적 PHANTOM, 모듈 CRYO/EXECUTE/PHASE EDGE, 무기 SHOCKWAVE/SCATTER) 추가.

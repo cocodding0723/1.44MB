@@ -795,6 +795,17 @@ docs/07 SDD의 VS/세피리아式 호드 생존 모드를 **별도 모드**로 �
 - **격리 검증**: code-reviewer-game CRIT/HIGH 0 — 동결 DESCENT 회귀·엔딩 오발 구조적 차단 확인. 탄 풀 graceful, 결정론 유지(sim RNG 미사용).
 - 최종 **115,712 bytes** (캡 7.85%).
 
+### v2.1 — QA·적대적검수 수정 패스 (2026-06-29)
+QA 플레이테스트 + 2축 적대적 검수(설계 red-team ∥ 코드 red-team) 후 검증된 수정. 신규 콘텐츠 없음(정확성·밸런스·스펙 정합).
+- **OC PHANTOM 텔레그래프 (QA HIGH)**: `draw_enemy_batched`가 PHANTOM 블링크 텔레그래프를 누락 → OC t180+ 예고 없는 순간이동(공정성 버그). `phantom_telegraph()` 헬퍼 추출, 비배칭/배칭 공용. 블링크 벽 차단 시 ring/burst 미발생(MED).
+- **보스중 스폰 감속 (적대적 CRIT — 스펙 갭)**: SDD §3.6 "보스 활성 중 일반 스폰 감속"이 `oc_horde_update`에 미구현 → `g_boss.active` 시 `interval×2.5`. PULSAR+풀호드 중첩 완화.
+- **PULSAR P3 탄밀도 완화**: PULSAR 전용 ebul 수명 4.0→3.0s(타 보스 4.0s 유지) → MAXEBUL 256 포화 여유, 패턴 무음드롭 방지. 패턴/결정론 보존.
+- **LEECH OC 소프트캡**: OC 호드 킬레이트가 흡혈 회복을 폭주시켜 무한생존 디제너릿 빌드 → OC에서만 흡혈 임계 ×3(DESCENT 불변). `g_pIfr`·글래스캐논 가드와 병행. **실기 튜닝 대상.**
+- **oc_draft cap 필터**: OC 드래프트가 cap 도달 모듈을 계속 제시(죽은 픽) → DESCENT `draw3`와 일관(`mod_capped` 필터).
+- **HIVE SHARD 벽 폴백**: 소환 샤드가 벽 내부 스폰 시 스턴락 → FORK 패턴 폴백.
+- **문서 정합**: SDD §14.6 `g_eneCap` 미구현 드리프트를 SUPERSEDED 명문화(비활성 단락으로 해소, 캡 분리 폐기). §15 stale "남은 O2/O3" 정리.
+- 최종 **116,736 bytes** (캡 7.92%). code-reviewer-game CRIT/HIGH 0, no-CRT·결정론 보존.
+
 ---
 *v1.0 (FROZEN) — 전체 리뷰 통과·동결. 사운드/미니맵/상점/옵션/디스플레이 스펙 명세 완료.*
 *v1.1~v1.3a (post-freeze) — §26 changelog 참조. 검증 수정 + 비주얼 폴리시 + 콘텐츠 확장 + QA 밸런스.*

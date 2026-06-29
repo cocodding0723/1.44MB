@@ -133,6 +133,7 @@ static void kill_enemy(int idx){
   }
   if(g_mod[M_LEECH]){ /* 흡혈: 12킬마다 1HP (스택당 -3, 최소 3) */
     int th=12-3*(g_mod[M_LEECH]-1); if(th<3)th=3;
+    if(g_mode==MODE_OVERCLOCK) th*=3; /* OC 호드 킬레이트 보정: 무한생존 소프트캡(§7, 실기 튜닝 대상) */
     g_leechKills++;
     if(g_leechKills>=th){ g_leechKills=0;
       if(g_pHP<g_pMaxHP){ g_pHP+=1.0f; spawn_ring(g_player.pos.x,g_player.pos.y,10.0f,180.0f,0.3f,0.3f,1.0f,0.5f); } }
@@ -278,12 +279,12 @@ static void boss_update(float dt){
     B->segAng+=(ph==3?1.6f:0.9f)*dt; /* 링/나선 회전 오프셋 */
     B->t1+=dt; /* P1+: 확장 방사 링 */
     if(B->t1>=(ph==3?1.4f:2.2f)){ B->t1=0.0f; int nb=ph==3?20:14, b2;
-      for(b2=0;b2<nb;b2++){ float a=B->segAng+(float)b2*6.2831853f/(float)nb; spawn_ebul(B->pos.x,B->pos.y,f_cos(a),f_sin(a),200.0f,4.0f); }
-      if(ph==3) for(b2=0;b2<nb;b2++){ float a=B->segAng+0.157f+(float)b2*6.2831853f/(float)nb; spawn_ebul(B->pos.x,B->pos.y,f_cos(a),f_sin(a),150.0f,4.0f); } /* P3 이중 링(저속 오프셋) */
+      for(b2=0;b2<nb;b2++){ float a=B->segAng+(float)b2*6.2831853f/(float)nb; spawn_ebul(B->pos.x,B->pos.y,f_cos(a),f_sin(a),200.0f,3.0f); } /* P3 포화 완화: 수명 4.0→3.0s */
+      if(ph==3) for(b2=0;b2<nb;b2++){ float a=B->segAng+0.157f+(float)b2*6.2831853f/(float)nb; spawn_ebul(B->pos.x,B->pos.y,f_cos(a),f_sin(a),150.0f,3.0f); } /* P3 이중 링(저속 오프셋), 수명 3.0s */
       snd_play(SFX_SHOOT); }
     if(ph>=2){ B->t2+=dt; /* P2+: 역회전 나선 팔 4개 발사(회전 스트림) */
       if(B->t2>=(ph==3?0.16f:0.28f)){ B->t2=0.0f; int b2;
-        for(b2=0;b2<4;b2++){ float a=-B->segAng*2.2f+(float)b2*1.5707963f; spawn_ebul(B->pos.x,B->pos.y,f_cos(a),f_sin(a),250.0f,4.0f); } } }
+        for(b2=0;b2<4;b2++){ float a=-B->segAng*2.2f+(float)b2*1.5707963f; spawn_ebul(B->pos.x,B->pos.y,f_cos(a),f_sin(a),250.0f,3.0f); } } } /* 나선 팔 수명 3.0s */
   }
   /* 트레일 수명/접촉 */
   for(k=0;k<MAXTRAIL;k++){ if(!g_trail[k].active) continue;
