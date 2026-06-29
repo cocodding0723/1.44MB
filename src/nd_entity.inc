@@ -346,6 +346,7 @@ static void oc_horde_update(float dt){
   g_ocSpawnT-=dt;
   if(g_ocSpawnT<=0.0f){
     float interval=1.2f-g_ocT*0.004f; if(interval<0.15f)interval=0.15f;
+    if(g_boss.active) interval*=2.5f; /* §3.6: 보스 활성 중 일반 스폰 감속(방잠금 대안) */
     g_ocSpawnT=interval;
     int alive=0; for(j=0;j<MAXENE;j++) if(g_ene[j].active) alive++;
     int cap=40+(int)(g_ocT*0.5f); if(cap>MAXENE-8)cap=MAXENE-8;
@@ -515,7 +516,7 @@ static void oc_draft(void){
   for(k=0;k<3;k++){
     int cand[WEAPN+MOD_COMMON], nc=0, i, q, dup;
     for(i=0;i<WEAPN;i++){ if(g_weapLvl[i]>=WEAP_CAP) continue; dup=0; for(q=0;q<k;q++) if(g_upgSel[q]==100+i) dup=1; if(!dup) cand[nc++]=100+i; }
-    for(i=0;i<MOD_COMMON;i++){ dup=0; for(q=0;q<k;q++) if(g_upgSel[q]==i) dup=1; if(!dup) cand[nc++]=i; }
+    for(i=0;i<MOD_COMMON;i++){ if(mod_capped(i)) continue; dup=0; for(q=0;q<k;q++) if(g_upgSel[q]==i) dup=1; if(!dup) cand[nc++]=i; } /* DESCENT draw3와 일관: cap 도달 모듈 제외(죽은 픽 방지) */
     if(nc<=0) continue;
     g_upgSel[k]=cand[(int)(xrnd()%(unsigned)nc)];
   }

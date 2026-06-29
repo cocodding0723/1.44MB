@@ -109,7 +109,8 @@ static void enemy_update(int i, float dt){
       e->t2+=dt;
       if(e->t2>=3.0f){ e->t2=0.0f; /* SHARD 방출 (적 수 캡으로 폭주 방지) */
         int na=0,q; for(q=0;q<MAXENE;q++) if(g_ene[q].active) na++;
-        if(na<80){ int ci=spawn_enemy(4,e->pos.x+rndsym()*28.0f,e->pos.y+rndsym()*28.0f,0); if(ci>=0) g_ene[ci].spawn=0.3f;
+        if(na<80){ float sx=e->pos.x+rndsym()*28.0f, sy=e->pos.y+rndsym()*28.0f; if(is_wall_w(sx,sy)){ sx=e->pos.x; sy=e->pos.y; } /* 벽 내부 스폰 폴백(FORK 패턴, 스턴락 방지) */
+          int ci=spawn_enemy(4,sx,sy,0); if(ci>=0) g_ene[ci].spawn=0.3f;
           spawn_ring(e->pos.x,e->pos.y,r,260.0f,0.3f,1.0f,0.5f,0.15f); } }
     }
     /* 접촉 데미지 (+ 가시 모듈: 접촉 적 반격) */
