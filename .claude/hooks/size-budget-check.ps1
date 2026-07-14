@@ -19,7 +19,15 @@ elseif ($size -ge $warn)     { $v='YELLOW' }
 else                         { $v='GREEN' }
 
 $hist = Join-Path $proj '.claude\memory\size-history.md'
-try { Add-Content -Path $hist -Value ("| {0} | auto | {1} | {2}% | {3}% | {4} |" -f (Get-Date -Format 'yyyy-MM-dd HH:mm'), $size, $pctCap, $pctTgt, $v) } catch {}
+# dedup: 직전 표 행과 크기가 같으면 기록 생략(매 툴호출 스팸 방지). 빌드로 크기가 바뀔 때만 1행 추가.
+$dup = $false
+try {
+  $lastRow = Get-Content -Path $hist -ErrorAction SilentlyContinue | Where-Object { $_ -match '^\|' } | Select-Object -Last 1
+  if ($lastRow -like "*| $size |*") { $dup = $true }
+} catch {}
+if (-not $dup) {
+  try { Add-Content -Path $hist -Value ("| {0} | auto | {1} | {2}% | {3}% | {4} |" -f (Get-Date -Format 'yyyy-MM-dd HH:mm'), $size, $pctCap, $pctTgt, $v) } catch {}
+}
 
 if ($v -eq 'FAIL') {
   Write-Error "[SIZE GATE] FAIL: game.exe=$size bytes > 1,474,560 cap. 빌드 거부 — 감축 필요(rules/10)."

@@ -6,7 +6,7 @@ try { $raw = [Console]::In.ReadToEnd() } catch {}
 $fp = $null
 try { $j = $raw | ConvertFrom-Json; $fp = $j.tool_input.file_path } catch {}
 if (-not $fp) { exit 0 }
-if ($fp -notmatch '\\src\\.*\.(c|h)$') { exit 0 }
+if ($fp -notmatch '[\\/]src[\\/].*\.(c|h|inc)$') { exit 0 }  # .inc(도메인 코드)·양방향 구분자 포함
 if (-not (Test-Path $fp)) { exit 0 }
 
 $txt = Get-Content -Raw $fp
