@@ -59,9 +59,11 @@
 | 교신 오버레이 (ECHO 레이어 진입) | v2 | ✅승인 | 2026-06-29 | [v2-comms.png](shots-narr/v2-comms.png) — **ECHO 점멸 삼각 시질(+노이즈 점) 추가, 패널 대비 0.62→0.80**. art-director HIGH(시질·대비) 반영 |
 | 코덱스 뷰어 (FRAGMENTS 열람) | v2 | ✅승인 | 2026-06-29 | [v2-codex.png](shots-narr/v2-codex.png) — **해금 항목 다이아 마커 + 텍스트 강조(0.92α)**. art-director HIGH(해금 강조) 반영 |
 | 페르소나 셀렉터 | v2 | ✅승인 | 2026-06-29 | [v2-persona.png](shots-narr/v2-persona.png) — **페르소나별 고유 시질(REVENANT 다이아+깨진링/DAEMON 가시/SENTINEL 육각방패/GHOST 이중링) + "A-PREV/NEXT-D" 명확화**. art-director HIGH(시질·UX) 반영 |
-| 엔딩 화면 | v2 | ✅승인 | 2026-06-29 | 엔딩별 시질(타이틀 아래) + 색상 차별화(PURGE청/MERGE보라/ESCAPE테알/ROT적) + 타이틀 위치 하향. art-director MED 반영. **MERGE 대표 캡처로 승인** — PURGE·ESCAPE 캡처는 추후 보강(코드 구현은 4종 모두 완료) |
+| 엔딩 화면 | v2 | ✅승인 | 2026-06-29 | 엔딩별 시질(타이틀 아래) + 색상 차별화(PURGE청/MERGE보라/ESCAPE테알/ROT적) + 타이틀 위치 하향. art-director MED 반영. **MERGE 대표 캡처로 승인** |
+| ↳ 엔딩 ESCAPE 실캡처 | v2 | ✅승인 | 2026-07-23 | [ending-escape.png](shots-narr/ending-escape.png) — **파일명 정정**: 기존 `ending-rot.png`가 실제로는 테알 "ESCAPE" 화면(END_ESCAPE, src/nd_screens.inc:183)이었음(오기재 발견·수정). 인게임 실캡처이므로 그대로 승인 유지 |
+| ↳ 엔딩 PURGE·THE ROT | v1(mockup) | ✅승인 | 2026-07-23 | [ending-purge-v1.png](ending-purge-v1.png) · [ending-rot-v1.png](ending-rot-v1.png) — **인게임 실캡처 불가**(현 세션 macOS, Windows/OpenGL/pwsh 전무 → rules/50 3순위 봉쇄) → src/nd_meta.inc의 실제 3×5 폰트 비트맵(`g_font`)·색상(청 0.6/0.9/1.0, 적 1.0/0.3/0.3)·`draw_sigil` 시질 로직(PURGE=type1 REVENANT 다이아, ROT=type4 GHOST 이중링)을 그대로 이식한 rules/50 1순위 절차 목업. **사용자 승인(2026-07-23)** — Windows 빌드 가능 세션에서 실캡처로 교체는 선택사항으로 남김 |
 
-> **art-director 검토 후 보강(v2, 2026-06-14)**: HIGH "시질 부재"(설계 §2)를 `draw_sigil` 절차 엠블럼으로 전면 해소(교신 ECHO 삼각·페르소나 4종·엔딩 4종·코덱스 마커). 패널 대비·해금 강조·페르소나 UX·엔딩 위치/색 보완. 에셋 0 유지. **2026-06-29 사용자 ✅ 일괄 승인**(엔딩은 MERGE 대표, PURGE/ESCAPE 캡처 추후 보강).
+> **art-director 검토 후 보강(v2, 2026-06-14)**: HIGH "시질 부재"(설계 §2)를 `draw_sigil` 절차 엠블럼으로 전면 해소(교신 ECHO 삼각·페르소나 4종·엔딩 4종·코덱스 마커). 패널 대비·해금 강조·페르소나 UX·엔딩 위치/색 보완. 에셋 0 유지. **2026-06-29 사용자 ✅ 일괄 승인**(엔딩은 MERGE 대표). PURGE/ROT는 위 행(2026-07-23) 참조.
 
 ## S 상점방 (2026-06-18, DESIGN §13 스트레치 — 구현 전 컨펌 게이트)
 
@@ -71,7 +73,11 @@
 |---|---|---|---|---|
 | 상점방 레이아웃/룩 | v1 | ✅승인 | 2026-06-18 | [shop-v1.png](shop-v1.png) — 냉각층 팰릿 회로벽+도트그리드, 제단 3종(모듈 60·수리 45·리롤 30 BITS) 네온 다이아, 플레이어 E 프롬프트, HUD. **사용자 승인 → 구현 착수** |
 
-> 미해결 질문(컨펌 시 함께): ① 명칭 "RECLAMATION TERMINAL" vs 단순 "SHOP" ② 제단 3개 고정 vs 랜덤 2~3 ③ 출현 표시(미니맵 `$` 마커) ④ 구매 키 E 확정 여부.
+> **미해결 질문 → 구현 기준 확정 종결 (2026-07-23):** 코드(`src/nd_world.inc:92`, `src/nd_screens.inc:79`, `src/game.c:137`) 확인 결과 아래처럼 이미 확정되어 동작 중 — 별도 명칭 없이 제단별 라벨(MODULE/REPAIR/REROLL)만 표시하는 편이 네온 미니멀 정체성에 더 부합해 추가 룸타이틀은 넣지 않음.
+> ① 명칭: 별도 룸타이틀 없음(제단 개별 라벨만) — "RECLAMATION TERMINAL"/"SHOP" 텍스트는 도입하지 않기로 확정
+> ② 제단 수: **3개 고정**(랜덤 아님, `nd_world.inc:100` `for(q=0;q<3;q++)`)
+> ③ 출현 표시: 미니맵 앰버 `$` 마커 구현됨(`nd_screens.inc:79`)
+> ④ 구매 키: **E 확정**(`game.c:137`)
 
 ## B-OC OVERCLOCK 256적 배칭 렌더 (2026-06-18, docs/07 §14.7 — 구현 전 컨펌 게이트)
 
@@ -112,3 +118,5 @@
 | 보스 PULSAR 룩/거동 | v1 | ✅승인 | 2026-06-22 | [boss-pulsar-v1.png](boss-pulsar-v1.png) — 일렉트릭 옐로 코어+동심링+역회전 나선 팔 4개. P1 확장 탄환 링→P2 +나선 팔 발사→P3(격노) 이중 링·고속. spawn_ebul 재활용. OC 보스타입 3, DESCENT 미등장. **사용자 승인 → 구현 완료(v2.0, 115,712B)** |
 
 > 사용자 승인(2026-06-22): "승인 — PULSAR 구현 진행". code-reviewer-game CRIT/HIGH 0 — **동결 DESCENT 보스 로테이션(%3)·최종보스-엔딩 격리 구조적 확인**(OC %4 전용, boss_die OC return이 엔딩 분기보다 선행). P3 탄밀도 실기기 플레이테스트 권장.
+>
+> **정적 검증 보강(2026-07-23, 실기기 대체):** 현 세션은 Windows/GL 빌드 불가라 실측 대신 코드 기반 정상상태(steady-state) 탄수 계산(src/nd_entity.inc:280-287) — P3 확장링 20+20발/1.4s(수명3.0s)≈85.7발 + 나선팔 4발/0.16s(수명3.0s)≈75발 → **합계 ≈161발, MAXEBUL=256 대비 63% 여유 확보**(오버플로 위험 낮음). 단 실제 프레임타임·"압도감" 손맛 체감은 코드로 검증 불가 → **실기기 60fps·체감 플레이테스트는 여전히 권장 사항으로 유지**.

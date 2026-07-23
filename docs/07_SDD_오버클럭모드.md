@@ -383,10 +383,12 @@ static float g_orbAng;               /* 오비탈 공전 위상(g_time 파생도
 
 | 버전 | 날짜 | 작성 | 변경 |
 |---|---|---|---|
-| **O2/O3 + 콘텐츠 확장** | **2026-06-18 ~ 2026-06-23** | **gameplay** | **O1의 "남은 O2/O3" 전부 구현 완료**(아래 O1 행의 forward-note는 stale): O2 무기 8종+BGM(§16.4)+상점(§13), O3 256적 배칭렌더(캡256, ✅승인)·무기진화 D-EVOLVE·고정시드훅·F11 전체화면. 이후 콘텐츠 확장 v1.5~v2.0: 적 PHANTOM(type7)·HIVE(type8), 레어 모듈 CRYO·EXECUTE·PHASE EDGE·SHRAPNEL, OC 무기 SHOCKWAVE·SCATTER, OC 전용 보스 THE PULSAR(type3). 최신 115,712B(캡 7.85%). 수치 출처: `.claude/memory/size-history.md`. |
+| **v2.1 QA·밸런스·백로그 정리** | **2026-06-29** | **qa/gameplay** | OC PHANTOM 텔레그래프 배칭 누락(HIGH) 등 QA 수정 + 적대적검수(보스중 스폰감속·oc_draft cap필터·HIVE 벽폴백) + v2.1 밸런스(PULSAR P3 수명3.0s·LEECH OC캡×3, §14.6 `g_eneCap` 미구현 드리프트 SUPERSEDED 명문화) + 백로그(점선 텔레그래프·PHANTOM 상수통합·spawn_ebul 계약문서화). sim 비트동일. **최신 116,736B(캡 7.92%, GREEN)**. 수치 출처: `.claude/memory/size-history.md`. |
+| **O2/O3 + 콘텐츠 확장** | **2026-06-18 ~ 2026-06-23** | **gameplay** | **O1의 "남은 O2/O3" 전부 구현 완료**(아래 O1 행의 forward-note는 stale): O2 무기 8종+BGM(§16.4)+상점(§13), O3 256적 배칭렌더(캡256, ✅승인)·무기진화 D-EVOLVE·고정시드훅·F11 전체화면. 이후 콘텐츠 확장 v1.5~v2.0: 적 PHANTOM(type7)·HIVE(type8), 레어 모듈 CRYO·EXECUTE·PHASE EDGE·SHRAPNEL, OC 무기 SHOCKWAVE·SCATTER, OC 전용 보스 THE PULSAR(type3). 115,712B(캡 7.85%). 수치 출처: `.claude/memory/size-history.md`. |
 | **O1 MVP 구현** | **2026-06-18** | **gameplay** | **착수→구현 완료.** `g_mode` 분기·아레나·자동사격(PULSE)·ORBITERS·NOVA·XP/레벨/드래프트(oc_draft/oc_apply, draw3 불가침)·호드 스포너·보스 웨이브(boss_spawn 추출 §14.3)·oc_render_hud. 본편 DESCENT 동결 보존(회귀 확인). +10KB → 99,840B(캡 6.8%). DESIGN §26 v1.4 등재. ~~남은 O2/O3: 무기 5종·256적 배칭·진화·고정시드훅~~ → **전부 완료(위 행 참조)**. |
 | v0.1 | 2026-06-14 | (초안) | OVERCLOCK 모드 SDD 초안 |
 | v0.2 | 2026-06-14 | design-reviewer | §13 red-team: 8개 공백 적발, **착수 보류**(재활용 ~70%→~40% 의심) |
 | **v0.3** | 2026-06-14 | **design-augmenter** | **§14 신설(8개 공백 보강).** §0 재활용율 70%→**40%**, 용량 +8~14KB→**+15~25KB**(코드 실측 기반). §8 렌더 배칭을 "재활용"→**신규 작업(`draw_enemy_batched`)**으로 재기재, 바이트 분해 현실화. §13 게이트 **착수보류→재검토 권장**, 각 항목에 보강 위치(§14.x) 주석. 본편 동결 설계 불변(코드 변경 0, 문서만 갱신). 신규 수용기준: TC-OC-06 bit-identical(§14.1·2), RT-BOSS-01 본편 회귀(§14.3), 드래프트 100회 `g_mod[]` 불변(§14.4). |
 
-> **changelog 근거 추적:** v0.3 모든 수치는 src/game.c 실측 인용(고정시드 681/2248, draw_enemy 1541~1652, boss_update 950, draw3/mod_capped 237~275, MAXENE 184, draw_text_multi 412, save 459~487, memset 12). 임의 변경 없음(rules/30 §3 외과적 변경).
+> **changelog 근거 추적:** v0.3 모든 수치는 당시 단일파일 src/game.c 실측 인용(고정시드 681/2248, draw_enemy 1541~1652, boss_update 950, draw3/mod_capped 237~275, MAXENE 184, draw_text_multi 412, save 459~487, memset 12). 임의 변경 없음(rules/30 §3 외과적 변경).
+> **주의(2026-07-23):** 2026-06-22 리팩토링으로 src/game.c가 도메인별 `src/nd_*.inc`로 분할됨([[code-structure-0622]]) — 위 라인번호는 v0.3 작성 시점(단일파일) 기준이며 현재 파일 구조와 다름. 심볼명 기준으로 grep 재검색 요망.

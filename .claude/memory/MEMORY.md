@@ -11,5 +11,6 @@
 - [narrative-n1-0614](narrative-n1-0614.md) — 세피리아풍 서사 N1: 본편 DESCENT에 영문 기계 교신체(ECHO/REVENANT, 레이어/보스/사망 교신). OVERCLOCK 모드(docs/07 SDD)는 red-team 게이트로 보류. 81,408B
 - [code-structure-0622](code-structure-0622.md) — src/ 도메인 .inc 분할(단일 TU, game.c만 컴파일) + 적 스탯 테이블(g_eneStat). 적/무기/모듈 확장 시 어디 고치는지
 - [overclock-o1-0618](overclock-o1-0618.md) — 2026-06-18 세션: OVERCLOCK 모드 O1+O2(g_mode 분기·아레나·자동사격·XP/레벨·보스웨이브·무기 8종) + BGM(§16.4) + 상점(§13, rules/50 승인). boss_spawn 추출(§14.3)·공용 HUD헬퍼 리팩터. 본편 동결 보존. 헤드리스 환경 GL 영상캡처 불가 교훈. 105,472B(캡 7.2%)
+- [backlog-closure-0723](backlog-closure-0723.md) — 2026-07-23: macOS 세션(Win32/GL/pwsh 전무) 제약 확인 + pwsh 훅 근본수정(brew install) + 엔딩 ROT/ESCAPE 파일 오기재 정정 + PURGE/ROT 목업 생성(⏳대기) + 상점질문 종결 + PULSAR P3 정적검증 + SDD changelog 갱신
 
 > 규칙: 설계 결정·밸런스 수치·용량 이력만 기록. 코드 구조·git 이력 등 repo가 이미 가진 정보는 기록 금지. 태그는 구체적으로.
